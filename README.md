@@ -1,0 +1,11 @@
+# TODO
+- [ ] add input
+    - [ ] Insert mode
+    - [ ] Visual mode
+        - [ ] Visual select mode (v)
+        - [ ] Visual snake mode (V)
+    - [ ] Normal mode
+    - [ ] Goto mode (g{row}{col})
+- [ ] Commands
+    - [ ] set 
+    - [ ] do {action} (everything that can be done can be done with a command)
