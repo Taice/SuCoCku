@@ -43,12 +43,7 @@ pub struct Sudoku {
     board: SudokuBoard,
     settings: Settings,
     mode: Mode,
-
-    cmd: String,
-
-    curr_keybind: String,
-    repeat: u8,
-
+    curr_cmd: String,
     col: u8,
     row: u8,
 }
@@ -59,12 +54,7 @@ impl Sudoku {
             board: SudokuBoard([[0; 9]; 9]),
             settings,
             mode: Mode::Normal,
-
-            cmd: String::default(),
-
-            curr_keybind: String::default(),
-            repeat: 0,
-
+            curr_cmd: String::default(),
             col: 4,
             row: 4,
         }
@@ -141,7 +131,7 @@ impl Sudoku {
         };
         let y_offset = -4.0;
         let y = side + cmd_size + y_offset;
-        draw_text_ex(&self.cmd, 0.0, y, text_params.clone());
+        draw_text_ex(&self.curr_cmd, 0.0, y, text_params.clone());
         let text = &self.mode.to_string();
 
         let text_width = measure_text(
@@ -179,59 +169,19 @@ impl Sudoku {
         self.handle_input();
     }
 
-    pub fn try_keybind(&mut self) {
-        let mode = self.mode.to_string();
-        let action = if let Some(action) = self
-            .settings
-            .keymaps
-            .get(&(mode, self.curr_keybind.clone()))
-        {
-            action.clone()
-        } else {
-            return;
-        };
-        if let Some(_) = action.find(";")
-            && self.repeat > 0
-        {
-            let commands = action.split(";").collect::<Vec<_>>();
-            for _ in 0..self.repeat {
-                commands.iter().for_each(|x| self.process_cmd(x));
-            }
-        } else {
-            let cmd = format!("{}{action}", self.repeat);
-            self.process_cmd(&cmd);
-        }
-        self.flush();
-    }
-
     fn handle_input(&mut self) {
         // global base case
         if is_key_down(KeyCode::Escape) {
             self.mode = Mode::Normal;
-            self.flush();
             return;
         }
 
         match &mut self.mode {
             Mode::Normal => {
-                if let Some(c) = get_char_pressed() {
-                    match c {
-                        ':' => {
-                            self.mode = Mode::Command;
-                            self.cmd.clear();
-                            self.flush();
-                        }
-                        '0'..='9' => {
-                            self.repeat = self
-                                .repeat
-                                .saturating_mul(10)
-                                .saturating_add(c as u8 - b'0')
-                        }
-                        _ => {
-                            self.curr_keybind += &c.to_string();
-                            self.try_keybind();
-                        }
-                    }
+                let c = get_char_pressed();
+                if c == Some(':') {
+                    self.mode = Mode::Command;
+                    self.curr_cmd = String::default();
                 }
             }
             Mode::Command => {
@@ -239,22 +189,22 @@ impl Sudoku {
                     match keycode {
                         KeyCode::Backspace => {
                             if is_key_down(KeyCode::LeftControl) {
-                                while let Some(val) = self.cmd.pop() {
+                                while let Some(val) = self.curr_cmd.pop() {
                                     if let ' ' | '_' | '\'' = val {
                                         break;
                                     }
                                 }
                             } else {
-                                self.cmd.pop();
+                                self.curr_cmd.pop();
                             }
                         }
                         KeyCode::Enter => {
-                            self.process_cmd(&self.cmd.clone());
+                            self.handle_command(self.curr_cmd.clone());
                         }
                         _ => {
                             if let Some(ch) = get_char_pressed() {
                                 if ch.is_alphanumeric() || ch == ' ' {
-                                    self.cmd.push(ch);
+                                    self.curr_cmd.push(ch);
                                 }
                             }
                         }
@@ -266,7 +216,7 @@ impl Sudoku {
                     if !c.is_ascii_digit() {
                         return;
                     }
-                    self.process_cmd(&format!("{c}note"));
+                    self.handle_command(format!("{c}note"));
                 }
             }
             Mode::Insert => {
@@ -274,7 +224,7 @@ impl Sudoku {
                     if !c.is_ascii_digit() {
                         return;
                     }
-                    self.process_cmd(&format!("{c}insert"));
+                    self.handle_command(format!("{c}note"));
                 }
             }
             Mode::Go(row) => {
@@ -286,7 +236,7 @@ impl Sudoku {
                     if *row == 0 {
                         *row = c as u8 - b'0';
                     } else {
-                        self.process_cmd(&format!("{}{c}go", self.row.clone()));
+                        self.handle_command(format!("{}{c}go", self.row.clone()));
                     }
                 }
             }
@@ -294,13 +244,8 @@ impl Sudoku {
         }
     }
 
-    fn flush(&mut self) {
-        self.curr_keybind.clear();
-        self.repeat = 0;
-    }
-
     #[rustfmt::skip]
-    fn process_cmd(&mut self, cmd: &str) {
+    fn handle_command(&mut self, cmd: String) {
         let mut trim = cmd.trim();
 
         let mut repeat: u8 = 0;
@@ -316,6 +261,9 @@ impl Sudoku {
                 }
             }
         }
+        if repeat == 0 {
+            repeat = 1;
+        }
         trim = &trim[repeat_end..];
 
         let mut args = &trim[0..0];
@@ -326,11 +274,10 @@ impl Sudoku {
             trim
         };
         self.mode = Mode::Normal;
-        let repeat = if repeat == 0 {None} else {Some(repeat)};
         match str {
-            "insert" | "i"   => self.insert(repeat),
-            "note"   | "n"   => self.note(repeat),
-            "go"     | "g"   => self.go(repeat),
+            "insert" | "i"   => self.insert(repeat - 1),
+            "note"   | "n"   => self.note(repeat - 1),
+            "go"     | "g"   => self.go(repeat - 1),
 
             "move"   | "mov" => self.mov(args, repeat),
             _ => {
@@ -340,16 +287,15 @@ impl Sudoku {
     }
 
     fn cmd_log(&mut self, err_msg: String) {
-        self.cmd = err_msg;
+        self.curr_cmd = err_msg;
     }
 
     // COMMANDS
-    fn mov(&mut self, args: &str, repeat: Option<u8>) {
+    fn mov(&mut self, args: &str, repeat: u8) {
         if let Some(_) = args.find(' ') {
-            self.cmd_log("Invalid usage: mov u/d/l/r".to_string())
+            self.cmd_log("Invalid usage: mov u/d/l/r".to_owned())
         }
 
-        let repeat = repeat.unwrap_or(1);
         match args {
             "u" | "up" => {
                 for _ in 0..repeat {
@@ -387,62 +333,57 @@ impl Sudoku {
                     }
                 }
             }
-            "mode" => {
-                self.mode(args);
-            }
-            _ => self.cmd_log("Invalid usage: mov u/d/l/r".to_string()),
+            _ => self.cmd_log("Invalid usage: mov u/d/l/r".to_owned()),
         }
     }
 
-    fn insert(&mut self, repeat: Option<u8>) {
-        if let Some(num) = repeat {
-            if num >= 9 || num == 0 {
-                self.cmd = "Invalid usage: <num>insert".to_string()
-            }
-
-            self.board[(self.row, self.col)] = num as u16;
-        } else {
+    fn insert(&mut self, mut num: u8) {
+        if num == 0 {
             self.mode = Mode::Insert;
+            return;
         }
+        num += 1;
+        if num > 9 || num == 0 {
+            self.curr_cmd = "Invalid usage: <num>insert".to_owned()
+        }
+
+        self.board[(self.row, self.col)] = num as u16;
     }
 
-    fn note(&mut self, repeat: Option<u8>) {
-        if let Some(note) = repeat {
-            if note > 9 || note == 0 {
-                self.cmd = "Invalid usage: <note>note".to_string()
-            }
-
-            let cell = &mut self.board[(self.row, self.col)];
-            if *cell == 0 || *cell & (1 << NOTE_FLAG) != 0 {
-                *cell |= 1 << NOTE_FLAG;
-                *cell ^= 1 << note - 1;
-            } else {
-                self.cmd_log("Err: Cell is already filled with a number".to_string());
-            }
-        } else {
+    fn note(&mut self, note: u8) {
+        if note == 0 {
             self.mode = Mode::Note;
+            return;
         }
-    }
+        if note > 9 {
+            self.cmd_log("Invalid usage: <num>insert".to_owned());
+            return;
+        }
 
-    fn go(&mut self, repeat: Option<u8>) {
-        if let Some(goto) = repeat {
-            let y = goto / 10;
-            let x = goto % 10;
-
-            if y <= 0 || y > 9 || x <= 0 {
-                self.cmd_log("Invalid usage: <y><x>go".to_string());
-                return;
-            }
-
-            self.row = y - 1;
-            self.col = x - 1;
+        let cell = &mut self.board[(self.row, self.col)];
+        if *cell == 0 || *cell & (1 << NOTE_FLAG) != 0 {
+            *cell |= 1 << NOTE_FLAG;
+            *cell ^= 1 << note;
         } else {
-            self.mode = Mode::Go(0);
+            self.cmd_log("Err: Cell is already filled with a number".to_owned());
         }
     }
 
-    fn mode(&mut self, mode: &str) {
-        self.mode = Mode::Custom(mode.to_string());
+    fn go(&mut self, args: u8) {
+        if args == 0 {
+            self.mode = Mode::Go(0);
+            return;
+        }
+        let y = args / 10;
+        let x = args % 10;
+
+        if y <= 0 || y > 9 || x <= 0 {
+            self.cmd_log("Invalid usage: <y><x>go".to_owned());
+            return;
+        }
+
+        self.row = y - 1;
+        self.col = x;
     }
 }
 

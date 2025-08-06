@@ -1,20 +1,12 @@
 mod settings;
 mod sudoku;
 
-use std::{io::ErrorKind, process::exit, time::Instant};
+use std::{process::exit};
 
 use directories::ProjectDirs;
 use macroquad::prelude::*;
 use settings::{Settings, config::Config};
 use sudoku::Sudoku;
-
-#[macro_export]
-macro_rules! time {
-    ($s:literal, $instant:expr) => {
-        println!("{} took {}ms to load", $s, $instant.elapsed().as_millis());
-        $instant = Instant::now();
-    };
-}
 
 fn window_conf() -> Conf {
     Conf {
@@ -29,22 +21,17 @@ fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf())]
 async fn main() {
-    let mut timer = Instant::now();
     let config = if let Ok(val) = load_config() {
         Some(val)
     } else {
         None
     };
-    time!("config", timer);
-    let mut settings = Settings::from_config(&config);
-    time!("settings", timer);
+    let settings = Settings::from_config(&config);
 
-    let mut sudoku = Sudoku::default();
-    time!("settings", timer);
-    let _ = timer;
+    let mut sudoku = Sudoku::new(settings);
     loop {
-        clear_background(GRAY);
-        sudoku.draw(&settings);
+        sudoku.draw();
+        sudoku.update();
         next_frame().await;
     }
 }
