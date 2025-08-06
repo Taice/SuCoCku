@@ -14,3 +14,6 @@
     - [x] fully custom colors
     - [x] fully custom line sizes
     - [x] you get the idea
+- [ ] Visual
+    - [x] comand line
+    - [ ] see keybinds (statusbar?)
