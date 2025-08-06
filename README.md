@@ -1,11 +1,16 @@
 # TODO
 - [ ] add input
-    - [ ] Insert mode
+    - [x] Insert mode
     - [ ] Visual mode
         - [ ] Visual select mode (v)
         - [ ] Visual snake mode (V)
-    - [ ] Normal mode
-    - [ ] Goto mode (g{row}{col})
-- [ ] Commands
+    - [x] Normal mode
+    - [x] Goto mode ({row}{col}g)
+- [x] Commands
     - [ ] set 
-    - [ ] do {action} (everything that can be done can be done with a command)
+    - [x] {action} (everything that can be done can be done with a command)
+- [x] Config file
+    - [x] fully custom binds
+    - [x] fully custom colors
+    - [x] fully custom line sizes
+    - [x] you get the idea
