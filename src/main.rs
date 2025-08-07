@@ -1,7 +1,8 @@
 mod settings;
 mod sudoku;
+mod unwrap_or_else;
 
-use std::{process::exit};
+use std::process::exit;
 
 use directories::ProjectDirs;
 use macroquad::prelude::*;
@@ -44,7 +45,8 @@ fn load_config() -> std::io::Result<Config> {
         Ok(x) => x,
         Err(e) => {
             let _ = std::fs::write(file, include_str!("../assets/config.toml"));
-            return Err(e);
+            println!("{e}");
+            exit(1)
         }
     };
     let config: Config = match toml::from_str(&content) {

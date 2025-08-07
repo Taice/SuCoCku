@@ -3,6 +3,8 @@ pub mod config;
 pub mod lines;
 pub mod opts;
 
+use crate::unwrap_or_else;
+
 use std::collections::HashMap;
 
 use colors::Colors;
@@ -86,12 +88,14 @@ impl Settings {
             }
 
             if let Some(o) = &config.opts {
-                assign_if_some!(default.opts.highlight_box, o.highlight_box);
-                assign_if_some!(default.opts.highlight_cell, o.highlight_cell);
-                assign_if_some!(default.opts.highlight_in_line, o.highlight_in_line);
                 assign_if_some!(default.opts.command_font_size, o.command_font_size);
                 assign_if_some!(default.opts.visual_highlight_size, o.visual_highlight_size);
-                assign_if_some!(default.opts.auto_candidate_elimination, o.auto_candidate_elimination);
+                assign_if_some!(
+                    default.opts.auto_candidate_elimination,
+                    o.auto_candidate_elimination
+                );
+                assign_if_some!(default.opts.auto_fill_candidates, o.auto_fill_candidates);
+                assign_if_some!(default.opts.check_input, o.check_input);
             }
             if let Some(keymaps) = &config.keymaps {
                 default.keymaps = match parse_config_keymaps(&keymaps) {
@@ -108,58 +112,9 @@ impl Settings {
         default
     }
     pub fn new(font: Font) -> Self {
-        let lines = Lines {
-            outer_width: 5.0,
-            box_width: 4.0,
-            normal_width: 2.0,
-        };
-        let colors = Colors {
-            square_color: WHITE,
-            bg_color: WHITE,
-            outer_color: BLACK,
-            box_color: BLACK,
-            normal_color: DARKGRAY,
-            normal_font: Color {
-                r: 0.2,
-                g: 0.2,
-                b: 0.2,
-                a: 1.0,
-            },
-            cmd_font: BLACK,
-            status_font: WHITE,
-
-            cmd_bg: WHITE,
-            status_bg: DARKGRAY,
-
-            note_font: DARKGRAY,
-
-            highlight_sub: Color {
-                r: 0.0,
-                g: 0.0,
-                b: 0.0,
-                a: 0.2,
-            },
-            highlight_main: Color {
-                r: 0.0,
-                g: 0.0,
-                b: 0.0,
-                a: 0.4,
-            },
-            visual_highlight_color: Color {
-                r: 0.4,
-                g: 0.4,
-                b: 0.7,
-                a: 1.0,
-            },
-        };
-        let opts = Opts {
-            highlight_box: true,
-            highlight_in_line: true,
-            highlight_cell: true,
-            command_font_size: BASE_COMMAND_FONT_SIZE,
-            visual_highlight_size: 5.0,
-            auto_candidate_elimination: false,
-        };
+        let lines = Lines::default();
+        let colors = Colors::default();
+        let opts = Opts::default();
         Self {
             colors,
             lines,
@@ -226,10 +181,17 @@ fn default_keymaps() -> HashMap<(String, String), String> {
     new_keymap!(hmap, nm, n, i; "j" => "move down");
     new_keymap!(hmap, nm, n, i; "k" => "move up");
     new_keymap!(hmap, nm, n, i; "l" => "move right");
-    new_keymap!(hmap, nm, n, i; "g" => "go");
-    new_keymap!(hmap, nm, n, g; "i" => "insert");
-    new_keymap!(hmap, nm, i, g; "n" => "note");
     new_keymap!(hmap, nm, n, i, g; " " => "mark");
+
+    new_keymap!(hmap, nm; "g" => "go");
+    new_keymap!(hmap, nm; "i" => "insert");
+    new_keymap!(hmap, nm, "visual"; "n" => "note");
+
+    new_keymap!(hmap, nm, n; "v" => "mode visual");
+    new_keymap!(hmap, "visual"; "h" => "mark; move left");
+    new_keymap!(hmap, "visual"; "j" => "mark; move down");
+    new_keymap!(hmap, "visual"; "k" => "mark; move up");
+    new_keymap!(hmap, "visual"; "l" => "mark; move right");
 
     hmap
 }
@@ -240,16 +202,12 @@ fn parse_config_keymaps(
     let mut res = HashMap::new();
     for (k, action) in keymaps {
         let mut split = k.split(";");
-        let modes = if let Some(x) = split.next() {
-            x
-        } else {
+        let modes = unwrap_or_else!(split.next(), {
             return Err("Invalid key");
-        };
-        let bind = if let Some(x) = split.next() {
-            x
-        } else {
+        });
+        let bind = unwrap_or_else!(split.next(), {
             return Err("No mode/keybind specified");
-        };
+        });
         for mode in modes.split(",") {
             res.insert((mode.to_string(), bind.to_string()), action.clone());
         }

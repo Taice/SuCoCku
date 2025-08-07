@@ -3,8 +3,10 @@ mod mode;
 use crate::{
     settings::{FONT_SCALE, Settings},
     sudoku::mode::Mode,
+    unwrap_or_else,
 };
 
+use arboard::Clipboard;
 use macroquad::prelude::*;
 use std::{
     f32,
@@ -12,8 +14,137 @@ use std::{
 };
 
 const NOTE_FLAG: u16 = 15;
+const ALL_NOTES: u16 = 0b1000000111111111;
 
+#[derive(PartialEq, Eq, Clone, Copy)]
 struct SudokuBoard([[u16; 9]; 9]);
+
+#[derive(PartialEq, Eq, Clone, Copy)]
+enum BacktrackResult {
+    OneSolution(SudokuBoard),
+    MoreSolutions,
+    NoSolution,
+}
+
+impl SudokuBoard {
+    fn from_str(&mut self, str: &str) -> Option<SudokuBoard> {
+        let mut new = SudokuBoard([[0; 9]; 9]);
+        for (i, x) in str.chars().enumerate() {
+            if !x.is_ascii_digit() {
+                return None;
+            }
+            new[(i / 9, i % 9)] = (x as u8 - b'0') as u16;
+        }
+        Some(new)
+    }
+
+    pub fn fill_cell_candidates(&mut self) {
+        for row in &mut self.0 {
+            for col in row {
+                if *col == 0 || is_note(*col) {
+                    *col = ALL_NOTES
+                }
+            }
+        }
+        for y in 0u8..9 {
+            for x in 0..9 {
+                self.fix_notes_around(y, x);
+            }
+        }
+    }
+
+    fn fix_notes_around(&mut self, y: u8, x: u8) {
+        let mut num = self[(y, x)];
+        if num == 0 || is_note(num) {
+            return;
+        }
+        num -= 1;
+        // check in boxes
+        for y in ((y / 3) * 3)..((y / 3) * 3 + 3) {
+            for x in ((x / 3) * 3)..((x / 3) * 3 + 3) {
+                if is_note(self[(y, x)]) {
+                    // turn n bit off
+                    self[(y, x)] &= !(1 << num);
+                }
+            }
+        }
+        for n in 0u8..9 {
+            // check in row
+            if is_note(self[(y, n)]) {
+                n_bit_off(&mut self[(y, n)], num);
+            }
+            // check in col
+            if is_note(self[(n, x)]) {
+                n_bit_off(&mut self[(n, x)], num);
+            }
+        }
+    }
+
+    pub fn solve(&mut self) -> BacktrackResult {
+        return self.backtrack(&mut BacktrackResult::NoSolution);
+    }
+    fn backtrack(&mut self, solve_state: &mut BacktrackResult) -> BacktrackResult {
+        if !self.is_valid() {
+            return *solve_state;
+        }
+        if let Some((y, x)) = self.find_empty_space() {
+            let before = self[(y, x)];
+            for num in 1..=9 {
+                self[(y, x)] = num;
+
+                match self.backtrack(solve_state) {
+                    BacktrackResult::NoSolution => (),
+                    BacktrackResult::MoreSolutions => return BacktrackResult::MoreSolutions,
+                    solved => *solve_state = solved,
+                }
+            }
+            self[(y, x)] = before;
+            return *solve_state;
+        } else {
+            return if matches!(*solve_state, BacktrackResult::OneSolution(_)) {
+                BacktrackResult::MoreSolutions
+            } else {
+                BacktrackResult::OneSolution(self.clone())
+            };
+        }
+    }
+
+    pub fn is_valid(&self) -> bool {
+        let mut rows = [[false; 9]; 9];
+        let mut cols = [[false; 9]; 9];
+        let mut boxes = [[false; 9]; 9];
+
+        for (i, row) in self.0.iter().enumerate() {
+            for (j, n) in row.iter().enumerate() {
+                if *n == 0 || is_note(*n) {
+                    continue;
+                }
+                let num = *n as usize - 1;
+                let box_index = get_box_index(i, j);
+
+                if rows[i][num] || cols[j][num] || boxes[box_index][num] {
+                    return false;
+                }
+
+                rows[i][num] = true;
+                cols[j][num] = true;
+                boxes[box_index][num] = true;
+            }
+        }
+        true
+    }
+
+    fn find_empty_space(&self) -> Option<(usize, usize)> {
+        for (i, row) in self.0.iter().enumerate() {
+            for (j, cell) in row.iter().enumerate() {
+                if *cell == 0 || is_note(*cell) {
+                    return Some((i, j));
+                }
+            }
+        }
+        None
+    }
+}
 
 impl Deref for SudokuBoard {
     type Target = [[u16; 9]; 9];
@@ -58,6 +189,7 @@ impl Selection {
 
 pub struct Sudoku {
     board: SudokuBoard,
+    only_solution: Option<SudokuBoard>,
     settings: Settings,
     mode: Mode,
 
@@ -75,7 +207,14 @@ pub struct Sudoku {
 impl Sudoku {
     pub fn new(settings: Settings) -> Self {
         Self {
-            board: SudokuBoard([[0; 9]; 9]),
+            only_solution: None,
+            board: SudokuBoard(
+                [[if settings.opts.auto_fill_candidates {
+                    ALL_NOTES
+                } else {
+                    0
+                }; 9]; 9],
+            ),
             settings,
             mode: Mode::Normal,
 
@@ -290,7 +429,7 @@ impl Sudoku {
         let y = side + bar_size + y_offset;
 
         draw_text_ex(
-            &format!("-- {} --", self.mode.to_string()),
+            &format!("-- {} --", self.mode.to_string().to_uppercase()),
             0.0,
             y,
             text_params.clone(),
@@ -342,11 +481,13 @@ impl Sudoku {
         } else {
             return false;
         };
-        if let Some(_) = action.find(";")
-            && self.repeat > 0
-        {
+        if action.find(";").is_some() {
             let commands = action.split(";").collect::<Vec<_>>();
-            for _ in 0..self.repeat {
+            if self.repeat > 0 {
+                for _ in 0..self.repeat {
+                    commands.iter().for_each(|x| self.process_cmd(x));
+                }
+            } else {
                 commands.iter().for_each(|x| self.process_cmd(x));
             }
         } else {
@@ -489,33 +630,6 @@ impl Sudoku {
         false
     }
 
-    fn fix_notes_around(&mut self, y: u8, x: u8) {
-        let mut num = self.board[(y, x)];
-        if num == 0 || is_note(num) {
-            return;
-        }
-        num -= 1;
-        // check in boxes
-        for y in ((y / 3) * 3)..((y / 3) * 3 + 3) {
-            for x in ((x / 3) * 3)..((x / 3) * 3 + 3) {
-                if is_note(self.board[(y, x)]) {
-                    // turn n bit off
-                    self.board[(y, x)] &= !(1 << num);
-                }
-            }
-        }
-        for n in 0u8..9 {
-            // check in row
-            if is_note(self.board[(y, n)]) {
-                n_bit_off(&mut self.board[(y, n)], num);
-            }
-            // check in col
-            if is_note(self.board[(n, x)]) {
-                n_bit_off(&mut self.board[(n, x)], num);
-            }
-        }
-    }
-
     fn flush(&mut self) {
         self.curr_keybind.clear();
         self.repeat = 0;
@@ -556,7 +670,8 @@ impl Sudoku {
             "move"   | "mov" => self.mov(args, repeat),
             "mode"           => self.mode(args),
             "mark"           => self.mark(),
-            "fill"           => self.fill_cell_candidates(),
+            "fill"           => self.board.fill_cell_candidates(),
+            "import"         => self.import_clipboard(),
             _ => {
                 self.cmd_log(format!("Invalid command: {str}"));
             }
@@ -625,9 +740,30 @@ impl Sudoku {
                 return;
             }
 
+            let before = self.board[(self.row, self.col)];
             self.board[(self.row, self.col)] = num as u16;
+            if self.settings.opts.check_input {
+                if let Some(solution) = &self.only_solution {
+                    if solution[(self.row, self.col)] != num as u16 {
+                        self.board[(self.row, self.col)] = before;
+                        return;
+                    }
+                } else {
+                    let mut clone = self.board.clone();
+                    match clone.solve() {
+                        BacktrackResult::NoSolution => {
+                            self.board[(self.row, self.col)] = before;
+                            return;
+                        }
+                        BacktrackResult::OneSolution(solution) => {
+                            self.only_solution = Some(solution);
+                        }
+                        BacktrackResult::MoreSolutions => (),
+                    }
+                }
+            }
             if self.settings.opts.auto_candidate_elimination {
-                self.fix_notes_around(self.row, self.col);
+                self.board.fix_notes_around(self.row, self.col);
             }
         } else {
             self.mode = Mode::Insert;
@@ -694,18 +830,45 @@ impl Sudoku {
         self.selected.toggle(self.row, self.col);
     }
 
-    fn fill_cell_candidates(&mut self) {
-        const FRESH: u16 = 0b1000000111111111;
-        for row in &mut self.board.0 {
-            for col in row {
-                if *col == 0 || is_note(*col) {
-                    *col = FRESH
+    fn import_clipboard(&mut self) {
+        let mut clipboard = if let Ok(x) = Clipboard::new() {
+            x
+        } else {
+            self.cmd_log("Couldn't open clipboard.".to_string());
+            return;
+        };
+        match clipboard.get_text() {
+            Ok(text) => {
+                let new = unwrap_or_else!(self.board.from_str(&text), {
+                    self.cmd_log("Invalid sudoku".to_string());
+                    return;
+                });
+                if self.settings.opts.auto_fill_candidates {
+                    self.board.fill_cell_candidates();
+                }
+
+                let mut new_new = new.clone();
+
+                match new_new.solve() {
+                    BacktrackResult::NoSolution => {
+                        self.cmd_log("Board has no solution.".to_string());
+                        return;
+                    }
+                    BacktrackResult::OneSolution(solution) => {
+                        self.only_solution = Some(solution);
+                    }
+                    BacktrackResult::MoreSolutions => {
+                        self.cmd_log("Note: Sudoku has multiple solutions.".to_string());
+                    }
+                }
+
+                self.board = new;
+                if self.settings.opts.auto_fill_candidates {
+                    self.board.fill_cell_candidates();
                 }
             }
-        }
-        for y in 0u8..9 {
-            for x in 0..9 {
-                self.fix_notes_around(y, x);
+            Err(e) => {
+                self.cmd_log(e.to_string());
             }
         }
     }
@@ -817,6 +980,12 @@ pub fn draw_notes(s: &Settings, box_size: f32, x: f32, y: f32, num: u16, font: &
         coords.0 = x;
         coords.1 += note_size;
     }
+}
+
+fn get_box_index(y: impl Into<usize>, x: impl Into<usize>) -> usize {
+    let y = y.into();
+    let x = x.into();
+    (y / 3) * 3 + (x / 3)
 }
 
 fn is_note(num: u16) -> bool {

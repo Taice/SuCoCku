@@ -40,10 +40,11 @@ pub struct Lines {
 
 #[derive(Debug, Deserialize)]
 pub struct Opts {
-    pub highlight_box: Option<bool>,
-    pub highlight_in_line: Option<bool>,
-    pub highlight_cell: Option<bool>,
     pub command_font_size: Option<u16>,
     pub visual_highlight_size: Option<f32>,
+
     pub auto_candidate_elimination: Option<bool>,
+    pub auto_fill_candidates: Option<bool>,
+
+    pub check_input: Option<bool>,
 }
