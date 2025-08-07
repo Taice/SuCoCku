@@ -21,7 +21,10 @@ pub struct Colors {
     pub normal_font_color: Option<[f32; 4]>,
     pub note_font_color: Option<[f32; 4]>,
     pub cmd_font_color: Option<[f32; 4]>,
+    pub status_font_color: Option<[f32; 4]>,
+
     pub cmd_bg_color: Option<[f32; 4]>,
+    pub status_bg_color: Option<[f32; 4]>,
 
     pub highlight_main: Option<[f32; 4]>,
     pub highlight_sub: Option<[f32; 4]>,

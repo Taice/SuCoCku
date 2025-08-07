@@ -10,7 +10,10 @@ pub struct Colors {
     pub normal_font: Color,
     pub note_font: Color,
     pub cmd_font: Color,
+    pub status_font: Color,
+
     pub cmd_bg: Color,
+    pub status_bg: Color,
 
     pub highlight_main: Color,
     pub highlight_sub: Color,

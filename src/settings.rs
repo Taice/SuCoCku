@@ -71,7 +71,10 @@ impl Settings {
                 assign_if_some_map!(default.colors.normal_font, colors.normal_font_color, into);
                 assign_if_some_map!(default.colors.note_font, colors.note_font_color, into);
                 assign_if_some_map!(default.colors.cmd_font, colors.cmd_font_color, into);
+                assign_if_some_map!(default.colors.status_font, colors.status_font_color, into);
+
                 assign_if_some_map!(default.colors.cmd_bg, colors.cmd_bg_color, into);
+                assign_if_some_map!(default.colors.status_bg, colors.status_bg_color, into);
 
                 assign_if_some_map!(default.colors.highlight_main, colors.highlight_main, into);
                 assign_if_some_map!(default.colors.highlight_sub, colors.highlight_sub, into);
@@ -116,7 +119,10 @@ impl Settings {
                 a: 1.0,
             },
             cmd_font: BLACK,
+            status_font: WHITE,
+
             cmd_bg: WHITE,
+            status_bg: DARKGRAY,
 
             note_font: DARKGRAY,
 
@@ -164,7 +170,7 @@ impl Settings {
         (BASE_NOTE_FONT_SIZE as f32 * (box_size / BASE_BOX_SIZE)) as u16
     }
     pub fn get_cmd_size(&self) -> f32 {
-        ((self.opts.command_font_size as f32 / BASE_COMMAND_FONT_SIZE as f32) * 22.).ceil()
+        ((self.opts.command_font_size as f32 / BASE_COMMAND_FONT_SIZE as f32) * 22. * 2.).ceil()
     }
 
     pub fn get_x_num_offset(&self, box_size: f32) -> f32 {

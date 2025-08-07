@@ -83,6 +83,7 @@ impl Sudoku {
 
         self.draw_grid(box_size);
         self.draw_cmd_line(cmd_size, side);
+        self.draw_statusbar(cmd_size / 2., side);
     }
 
     fn draw_grid(&self, box_size: f32) {
@@ -130,6 +131,42 @@ impl Sudoku {
             y += box_size;
         }
     }
+    fn draw_statusbar(&self, bar_size: f32, side: f32) {
+        draw_rectangle(0.0, side, side, bar_size, self.settings.colors.status_bg);
+        let text_params = TextParams {
+            font: Some(&self.settings.font),
+            font_size: self.settings.opts.command_font_size,
+            font_scale: FONT_SCALE,
+            color: self.settings.colors.status_font,
+            ..Default::default()
+        };
+        let y_offset = -4.0;
+        let y = side + bar_size + y_offset;
+
+        draw_text_ex(
+            &format!("-- {} --", self.mode.to_string()),
+            0.0,
+            y,
+            text_params.clone(),
+        );
+
+        let text;
+        if self.repeat > 0 {
+            text = format!("{}{}", self.repeat, self.curr_keybind)
+        } else {
+            text = self.curr_keybind.clone();
+        }
+        let width = measure_text(
+            &text,
+            Some(&self.settings.font),
+            self.settings.opts.command_font_size,
+            FONT_SCALE,
+        )
+        .width;
+
+        let x = side - width;
+        draw_text_ex(&text, x, y, text_params);
+    }
     fn draw_cmd_line(&self, cmd_size: f32, side: f32) {
         draw_rectangle(0.0, side, side, cmd_size, self.settings.colors.cmd_bg);
         let text_params = TextParams {
@@ -141,18 +178,7 @@ impl Sudoku {
         };
         let y_offset = -4.0;
         let y = side + cmd_size + y_offset;
-        draw_text_ex(&self.cmd, 0.0, y, text_params.clone());
-        let text = &self.mode.to_string();
-
-        let text_width = measure_text(
-            text,
-            Some(&self.settings.font),
-            self.settings.opts.command_font_size,
-            FONT_SCALE,
-        )
-        .width;
-
-        draw_text_ex(text, side - text_width, y, text_params);
+        draw_text_ex(&self.cmd, 0.0, y, text_params);
     }
 
     fn draw_highlight(&self, i: usize, j: usize, y: f32, x: f32, box_size: f32) {
@@ -179,7 +205,7 @@ impl Sudoku {
         self.handle_input();
     }
 
-    pub fn try_keybind(&mut self) {
+    pub fn try_keybind(&mut self) -> bool {
         let mode = self.mode.to_string();
         let action = if let Some(action) = self
             .settings
@@ -188,7 +214,7 @@ impl Sudoku {
         {
             action.clone()
         } else {
-            return;
+            return false;
         };
         if let Some(_) = action.find(";")
             && self.repeat > 0
@@ -202,6 +228,7 @@ impl Sudoku {
             self.process_cmd(&cmd);
         }
         self.flush();
+        true
     }
 
     fn handle_input(&mut self) {
@@ -227,10 +254,10 @@ impl Sudoku {
                                 .saturating_mul(10)
                                 .saturating_add(c as u8 - b'0')
                         }
-                        _ => {
-                            self.curr_keybind += &c.to_string();
-                            self.try_keybind();
+                        ch if ch.is_ascii_alphabetic() => {
+                            self.update_keybind(ch);
                         }
+                        _ => (),
                     }
                 }
             }
@@ -263,35 +290,91 @@ impl Sudoku {
             }
             Mode::Note => {
                 if let Some(c) = get_char_pressed() {
-                    if !c.is_ascii_digit() {
-                        return;
+                    match c {
+                        '0'..='9' => {
+                            self.process_cmd(&format!("{c}note"));
+                        }
+                        ch if ch.is_alphabetic() => {
+                            self.update_keybind(ch);
+                        }
+                        _ => (),
                     }
-                    self.process_cmd(&format!("{c}note"));
                 }
             }
             Mode::Insert => {
                 if let Some(c) = get_char_pressed() {
-                    if !c.is_ascii_digit() {
-                        return;
+                    match c {
+                        '0'..='9' => {
+                            self.process_cmd(&format!("{c}insert"));
+                        }
+                        ch if ch.is_alphabetic() => {
+                            self.update_keybind(ch);
+                        }
+                        _ => (),
                     }
-                    self.process_cmd(&format!("{c}insert"));
                 }
             }
             Mode::Go(row) => {
                 if let Some(c) = get_char_pressed() {
-                    println!("{row}, {c}");
-                    if !c.is_ascii_digit() || c == '0' {
-                        return;
-                    }
-                    if *row == 0 {
-                        *row = c as u8 - b'0';
-                    } else {
-                        self.process_cmd(&format!("{}{c}go", self.row.clone()));
+                    match c {
+                        '1'..='9' => {
+                            if *row == 0 {
+                                *row = c as u8 - b'0';
+                            } else {
+                                self.process_cmd(&format!("{}{c}go", self.row.clone()));
+                            }
+                        }
+                        '0' => (),
+                        ch if ch.is_alphabetic() => {
+                            self.update_keybind(ch);
+                        }
+                        _ => (),
                     }
                 }
             }
-            Mode::Custom(_custom) => (),
+            Mode::Custom(_) => {
+                if let Some(c) = get_char_pressed() {
+                    match c {
+                        '0'..='9' => {
+                            self.repeat = self
+                                .repeat
+                                .saturating_mul(10)
+                                .saturating_add(c as u8 - b'0');
+                        }
+                        ch if ch.is_alphabetic() => {
+                            self.update_keybind(ch);
+                        }
+                        _ => (),
+                    }
+                }
+            }
         }
+    }
+
+    fn update_keybind(&mut self, c: char) {
+        self.curr_keybind += &c.to_string();
+        if !self.try_keybind() {
+            if !self.matching_keymap_exists() {
+                self.flush();
+            }
+        }
+    }
+
+    fn matching_keymap_exists(&self) -> bool {
+        let idx = self.curr_keybind.len();
+        let curr_mode = self.mode.to_string();
+        for ((mode, keybind), _) in &self.settings.keymaps {
+            if *mode != curr_mode {
+                continue;
+            }
+            if keybind.len() < idx {
+                continue;
+            }
+            if keybind[..idx] == self.curr_keybind {
+                return true;
+            }
+        }
+        false
     }
 
     fn flush(&mut self) {
@@ -396,8 +479,9 @@ impl Sudoku {
 
     fn insert(&mut self, repeat: Option<u8>) {
         if let Some(num) = repeat {
-            if num >= 9 || num == 0 {
-                self.cmd = "Invalid usage: <num>insert".to_string()
+            if !(1..=9).contains(&num) {
+                self.cmd = "Invalid usage: <num>insert".to_string();
+                return;
             }
 
             self.board[(self.row, self.col)] = num as u16;
@@ -408,8 +492,9 @@ impl Sudoku {
 
     fn note(&mut self, repeat: Option<u8>) {
         if let Some(note) = repeat {
-            if note > 9 || note == 0 {
-                self.cmd = "Invalid usage: <note>note".to_string()
+            if !(1..=9).contains(&note) {
+                self.cmd = "Invalid usage: <note>note".to_string();
+                return;
             }
 
             let cell = &mut self.board[(self.row, self.col)];

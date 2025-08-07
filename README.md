@@ -16,4 +16,5 @@
     - [x] you get the idea
 - [ ] Visual
     - [x] comand line
-    - [ ] see keybinds (statusbar?)
+    - [x] see keybinds (statusbar?)
+    - [ ] which key
