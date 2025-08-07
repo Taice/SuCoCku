@@ -18,3 +18,8 @@
     - [x] comand line
     - [x] see keybinds (statusbar?)
     - [ ] which key
+- [ ] sudoku features
+    - [x] auto fill candidates
+    - [x] auto eliminate candidates
+    - [x] input checking
+    - [ ] undo
