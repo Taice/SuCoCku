@@ -1,9 +1,9 @@
 # TODO
-- [ ] add input
+- [x] add input
     - [x] Insert mode
-    - [ ] Visual mode
-        - [ ] Visual select mode (v)
-        - [ ] Visual snake mode (V)
+    - [x] Visual mode
+        - [x] Visual select mode
+        - [x] Visual snake mode
     - [x] Normal mode
     - [x] Goto mode ({row}{col}g)
 - [x] Commands
