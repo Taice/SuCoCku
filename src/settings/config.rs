@@ -28,6 +28,7 @@ pub struct Colors {
 
     pub highlight_main: Option<[f32; 4]>,
     pub highlight_sub: Option<[f32; 4]>,
+    pub visual_highlight_color: Option<[f32; 4]>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -43,4 +44,6 @@ pub struct Opts {
     pub highlight_in_line: Option<bool>,
     pub highlight_cell: Option<bool>,
     pub command_font_size: Option<u16>,
+    pub visual_highlight_size: Option<f32>,
+    pub auto_candidate_elimination: Option<bool>,
 }

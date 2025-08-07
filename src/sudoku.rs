@@ -39,12 +39,31 @@ impl<T: Into<usize>> IndexMut<(T, T)> for SudokuBoard {
     }
 }
 
+#[derive(Default)]
+struct Selection([u16; 9]);
+
+impl Selection {
+    fn toggle(&mut self, y: impl Into<usize>, x: impl Into<usize>) {
+        self.0[y.into()] ^= 1 << x.into();
+    }
+    fn get(&self, y: impl Into<usize>, x: impl Into<usize>) -> bool {
+        self.0[y.into()] & (1 << x.into()) > 0
+    }
+    fn clear(&mut self) {
+        for x in &mut self.0 {
+            *x = 0;
+        }
+    }
+}
+
 pub struct Sudoku {
     board: SudokuBoard,
     settings: Settings,
     mode: Mode,
 
     cmd: String,
+
+    selected: Selection,
 
     curr_keybind: String,
     repeat: u8,
@@ -59,6 +78,8 @@ impl Sudoku {
             board: SudokuBoard([[0; 9]; 9]),
             settings,
             mode: Mode::Normal,
+
+            selected: Selection::default(),
 
             cmd: String::default(),
 
@@ -86,30 +107,155 @@ impl Sudoku {
         self.draw_statusbar(cmd_size / 2., side);
     }
 
-    fn draw_grid(&self, box_size: f32) {
+    fn draw_grid(&self, square_size: f32) {
         let text_params = TextParams {
             font: Some(&self.settings.font),
-            font_size: self.settings.get_num_font_size(box_size),
+            font_size: self.settings.get_num_font_size(square_size),
             font_scale: FONT_SCALE,
             color: self.settings.colors.normal_font,
             ..Default::default()
         };
-        let mut y = self.settings.lines.outer_width;
 
+        let x_note_offset = self.settings.get_x_note_offset(square_size);
+        let y_note_offset = self.settings.get_y_note_offset(square_size);
+        let x_num_offset = self.settings.get_x_num_offset(square_size);
+        let y_num_offset = self.settings.get_y_num_offset(square_size);
+
+        let highlight_size = self.settings.get_highlight_size(square_size);
+
+        let mut y = self.settings.lines.outer_width;
         let mut x = self.settings.lines.outer_width;
         for (i, row) in self.board.iter().enumerate() {
-            let num_y = y + self.settings.get_y_num_offset(box_size);
-            let note_y = y + self.settings.get_y_note_offset(box_size);
+            let num_y = y + y_num_offset;
+            let note_y = y + y_note_offset;
             for (j, n) in row.iter().enumerate() {
-                self.draw_highlight(i, j, y, x, box_size);
+                // draw selected
+                if self.selected.get(i, j) || (self.row as usize, self.col as usize) == (i, j) {
+                    let mut neighbors = [false; 8];
+                    let mut counter = 0;
+                    for yy in [-1, 0, 1] {
+                        for xx in [-1, 0, 1] {
+                            if yy == 0 && xx == 0 {
+                                continue;
+                            }
+                            let y = i as i8 + yy;
+                            let x = j as i8 + xx;
+                            if (0..9).contains(&y) && (0..9).contains(&x) {
+                                neighbors[counter] = self.selected.get(y as usize, x as usize)
+                                    || (y as u8 == self.row && x as u8 == self.col);
+                            }
+                            counter += 1;
+                        }
+                    }
+
+                    let mut check_corners = [true; 4];
+
+                    // SIDES
+                    if !neighbors[1] {
+                        draw_rectangle(
+                            x,
+                            y,
+                            square_size,
+                            highlight_size,
+                            self.settings.colors.visual_highlight_color,
+                        );
+                        check_corners[0] = false;
+                        check_corners[1] = false;
+                    }
+                    if !neighbors[3] {
+                        draw_rectangle(
+                            x,
+                            y,
+                            highlight_size,
+                            square_size,
+                            self.settings.colors.visual_highlight_color,
+                        );
+                        check_corners[0] = false;
+                        check_corners[3] = false;
+                    }
+                    if !neighbors[4] {
+                        draw_rectangle(
+                            x + square_size - highlight_size,
+                            y,
+                            highlight_size,
+                            square_size,
+                            self.settings.colors.visual_highlight_color,
+                        );
+                        check_corners[1] = false;
+                        check_corners[2] = false;
+                    }
+                    if !neighbors[6] {
+                        draw_rectangle(
+                            x,
+                            y + square_size - highlight_size,
+                            square_size,
+                            highlight_size,
+                            self.settings.colors.visual_highlight_color,
+                        );
+                        check_corners[2] = false;
+                        check_corners[3] = false;
+                    }
+
+                    if check_corners[0] {
+                        if !neighbors[0] {
+                            draw_rectangle(
+                                x,
+                                y,
+                                highlight_size,
+                                highlight_size,
+                                self.settings.colors.visual_highlight_color,
+                            );
+                        }
+                    }
+                    if check_corners[1] {
+                        if !neighbors[2] {
+                            draw_rectangle(
+                                x + square_size - highlight_size,
+                                y,
+                                highlight_size,
+                                highlight_size,
+                                self.settings.colors.visual_highlight_color,
+                            );
+                        }
+                    }
+                    if check_corners[2] {
+                        if !neighbors[7] {
+                            draw_rectangle(
+                                x + square_size - highlight_size,
+                                y + square_size - highlight_size,
+                                highlight_size,
+                                highlight_size,
+                                self.settings.colors.visual_highlight_color,
+                            );
+                        }
+                    }
+                    if check_corners[3] {
+                        if !neighbors[5] {
+                            draw_rectangle(
+                                x,
+                                y + square_size - highlight_size,
+                                highlight_size,
+                                highlight_size,
+                                self.settings.colors.visual_highlight_color,
+                            );
+                        }
+                    }
+                }
                 if *n != 0 {
                     // note
-                    if n & (1 << NOTE_FLAG) != 0 {
-                        let x = x + self.settings.get_x_note_offset(box_size);
-                        draw_notes(&self.settings, box_size, x, note_y, *n, &self.settings.font);
+                    if is_note(*n) {
+                        let x = x + x_note_offset;
+                        draw_notes(
+                            &self.settings,
+                            square_size,
+                            x,
+                            note_y,
+                            *n,
+                            &self.settings.font,
+                        );
                     // num
                     } else {
-                        let x = x + self.settings.get_x_num_offset(box_size);
+                        let x = x + x_num_offset;
                         draw_text_ex(&n.to_string(), x, num_y, text_params.clone());
                     }
                 }
@@ -119,7 +265,7 @@ impl Sudoku {
                 } else {
                     x += self.settings.lines.normal_width;
                 }
-                x += box_size;
+                x += square_size;
             }
             x = self.settings.lines.outer_width;
 
@@ -128,7 +274,7 @@ impl Sudoku {
             } else {
                 y += self.settings.lines.normal_width;
             }
-            y += box_size;
+            y += square_size;
         }
     }
     fn draw_statusbar(&self, bar_size: f32, side: f32) {
@@ -181,26 +327,6 @@ impl Sudoku {
         draw_text_ex(&self.cmd, 0.0, y, text_params);
     }
 
-    fn draw_highlight(&self, i: usize, j: usize, y: f32, x: f32, box_size: f32) {
-        let mut color = Color::from_rgba(0, 0, 0, 0);
-
-        if self.settings.opts.highlight_in_line {
-            if i == self.row as usize || j == self.col as usize {
-                color = self.settings.colors.highlight_sub;
-            }
-        }
-        if self.settings.opts.highlight_box {
-            if get_box_index(i, j) == get_box_index(self.row, self.col) {
-                color = self.settings.colors.highlight_sub;
-            }
-        }
-        if self.settings.opts.highlight_cell && self.row as usize == i && self.col as usize == j {
-            color = self.settings.colors.highlight_main
-        }
-
-        draw_rectangle(x, y, box_size, box_size, color);
-    }
-
     pub fn update(&mut self) {
         self.handle_input();
     }
@@ -235,6 +361,7 @@ impl Sudoku {
         // global base case
         if is_key_down(KeyCode::Escape) {
             self.mode = Mode::Normal;
+            self.selected.clear();
             self.flush();
             return;
         }
@@ -254,10 +381,7 @@ impl Sudoku {
                                 .saturating_mul(10)
                                 .saturating_add(c as u8 - b'0')
                         }
-                        ch if ch.is_ascii_alphabetic() => {
-                            self.update_keybind(ch);
-                        }
-                        _ => (),
+                        _ => self.update_keybind(c),
                     }
                 }
             }
@@ -294,10 +418,7 @@ impl Sudoku {
                         '0'..='9' => {
                             self.process_cmd(&format!("{c}note"));
                         }
-                        ch if ch.is_alphabetic() => {
-                            self.update_keybind(ch);
-                        }
-                        _ => (),
+                        _ => self.update_keybind(c),
                     }
                 }
             }
@@ -307,10 +428,7 @@ impl Sudoku {
                         '0'..='9' => {
                             self.process_cmd(&format!("{c}insert"));
                         }
-                        ch if ch.is_alphabetic() => {
-                            self.update_keybind(ch);
-                        }
-                        _ => (),
+                        _ => self.update_keybind(c),
                     }
                 }
             }
@@ -325,10 +443,7 @@ impl Sudoku {
                             }
                         }
                         '0' => (),
-                        ch if ch.is_alphabetic() => {
-                            self.update_keybind(ch);
-                        }
-                        _ => (),
+                        _ => self.update_keybind(c),
                     }
                 }
             }
@@ -341,10 +456,7 @@ impl Sudoku {
                                 .saturating_mul(10)
                                 .saturating_add(c as u8 - b'0');
                         }
-                        ch if ch.is_alphabetic() => {
-                            self.update_keybind(ch);
-                        }
-                        _ => (),
+                        _ => self.update_keybind(c),
                     }
                 }
             }
@@ -375,6 +487,33 @@ impl Sudoku {
             }
         }
         false
+    }
+
+    fn fix_notes_around(&mut self, y: u8, x: u8) {
+        let mut num = self.board[(y, x)];
+        if num == 0 || is_note(num) {
+            return;
+        }
+        num -= 1;
+        // check in boxes
+        for y in ((y / 3) * 3)..((y / 3) * 3 + 3) {
+            for x in ((x / 3) * 3)..((x / 3) * 3 + 3) {
+                if is_note(self.board[(y, x)]) {
+                    // turn n bit off
+                    self.board[(y, x)] &= !(1 << num);
+                }
+            }
+        }
+        for n in 0u8..9 {
+            // check in row
+            if is_note(self.board[(y, n)]) {
+                n_bit_off(&mut self.board[(y, n)], num);
+            }
+            // check in col
+            if is_note(self.board[(n, x)]) {
+                n_bit_off(&mut self.board[(n, x)], num);
+            }
+        }
     }
 
     fn flush(&mut self) {
@@ -408,7 +547,6 @@ impl Sudoku {
         } else {
             trim
         };
-        self.mode = Mode::Normal;
         let repeat = if repeat == 0 {None} else {Some(repeat)};
         match str {
             "insert" | "i"   => self.insert(repeat),
@@ -416,9 +554,15 @@ impl Sudoku {
             "go"     | "g"   => self.go(repeat),
 
             "move"   | "mov" => self.mov(args, repeat),
+            "mode"           => self.mode(args),
+            "mark"           => self.mark(),
+            "fill"           => self.fill_cell_candidates(),
             _ => {
                 self.cmd_log(format!("Invalid command: {str}"));
             }
+        }
+        if self.mode == Mode::Command {
+            self.mode = Mode::Normal;
         }
     }
 
@@ -470,9 +614,6 @@ impl Sudoku {
                     }
                 }
             }
-            "mode" => {
-                self.mode(args);
-            }
             _ => self.cmd_log("Invalid usage: mov u/d/l/r".to_string()),
         }
     }
@@ -485,6 +626,9 @@ impl Sudoku {
             }
 
             self.board[(self.row, self.col)] = num as u16;
+            if self.settings.opts.auto_candidate_elimination {
+                self.fix_notes_around(self.row, self.col);
+            }
         } else {
             self.mode = Mode::Insert;
         }
@@ -497,12 +641,28 @@ impl Sudoku {
                 return;
             }
 
-            let cell = &mut self.board[(self.row, self.col)];
-            if *cell == 0 || *cell & (1 << NOTE_FLAG) != 0 {
-                *cell |= 1 << NOTE_FLAG;
-                *cell ^= 1 << note - 1;
-            } else {
-                self.cmd_log("Err: Cell is already filled with a number".to_string());
+            if !self.selected.get(self.row, self.col) {
+                let cell = &mut self.board[(self.row, self.col)];
+                if *cell == 0 || is_note(*cell) {
+                    n_bit_on(cell, NOTE_FLAG);
+                    toggle_bit(cell, note - 1);
+                } else {
+                    self.cmd_log("Err: Cell is already filled with a number".to_string());
+                }
+            }
+            for (i, row) in self.selected.0.iter().enumerate() {
+                if *row == 0 {
+                    continue;
+                }
+                for col in 0..9 {
+                    if *row & (1 << col) > 0 {
+                        let cell = &mut self.board[(i, col)];
+                        if *cell == 0 || is_note(*cell) {
+                            n_bit_on(cell, NOTE_FLAG);
+                            toggle_bit(cell, note - 1);
+                        }
+                    }
+                }
             }
         } else {
             self.mode = Mode::Note;
@@ -528,6 +688,26 @@ impl Sudoku {
 
     fn mode(&mut self, mode: &str) {
         self.mode = Mode::Custom(mode.to_string());
+    }
+
+    fn mark(&mut self) {
+        self.selected.toggle(self.row, self.col);
+    }
+
+    fn fill_cell_candidates(&mut self) {
+        const FRESH: u16 = 0b1000000111111111;
+        for row in &mut self.board.0 {
+            for col in row {
+                if *col == 0 || is_note(*col) {
+                    *col = FRESH
+                }
+            }
+        }
+        for y in 0u8..9 {
+            for x in 0..9 {
+                self.fix_notes_around(y, x);
+            }
+        }
     }
 }
 
@@ -575,7 +755,7 @@ pub fn draw_inlines(s: &Settings, side: f32, box_size: f32) {
 
 pub fn draw_outlines(s: &Settings, side: f32) {
     let half = s.lines.outer_width / 2.;
-    //Draw Sudoku lines
+    // Draw Sudoku lines
     draw_line(
         0.0,
         half,
@@ -639,6 +819,17 @@ pub fn draw_notes(s: &Settings, box_size: f32, x: f32, y: f32, num: u16, font: &
     }
 }
 
-fn get_box_index(row: impl Into<usize>, col: impl Into<usize>) -> usize {
-    (row.into() / 3) * 3 + (col.into() / 3)
+fn is_note(num: u16) -> bool {
+    num & (1 << NOTE_FLAG) != 0
+}
+
+fn toggle_bit(num: &mut u16, bit: impl Into<u16>) {
+    *num ^= 1 << bit.into();
+}
+
+fn n_bit_off(num: &mut u16, bit: impl Into<u16>) {
+    *num &= !(1 << bit.into());
+}
+fn n_bit_on(num: &mut u16, bit: impl Into<u16>) {
+    *num |= 1 << bit.into();
 }

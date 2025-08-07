@@ -28,11 +28,11 @@ macro_rules! assign_if_some_map {
 }
 
 pub const FONT_SCALE: f32 = 0.5;
-const BASE_NUM_FONT_SIZE: u16 = 120;
-const BASE_NOTE_FONT_SIZE: u16 = 33;
+const BASE_NUM_FONT_SIZE: u16 = 122;
+const BASE_NOTE_FONT_SIZE: u16 = 35;
 const BASE_COMMAND_FONT_SIZE: u16 = 40;
 
-pub const BASE_BOX_SIZE: f32 = (500 - 8 - 8 - 12) as f32 / 9.;
+pub const BASE_BOX_SIZE: f32 = 468.0 / 9.;
 
 pub struct Settings {
     pub lines: Lines,
@@ -78,6 +78,11 @@ impl Settings {
 
                 assign_if_some_map!(default.colors.highlight_main, colors.highlight_main, into);
                 assign_if_some_map!(default.colors.highlight_sub, colors.highlight_sub, into);
+                assign_if_some_map!(
+                    default.colors.visual_highlight_color,
+                    colors.visual_highlight_color,
+                    into
+                );
             }
 
             if let Some(o) = &config.opts {
@@ -85,6 +90,8 @@ impl Settings {
                 assign_if_some!(default.opts.highlight_cell, o.highlight_cell);
                 assign_if_some!(default.opts.highlight_in_line, o.highlight_in_line);
                 assign_if_some!(default.opts.command_font_size, o.command_font_size);
+                assign_if_some!(default.opts.visual_highlight_size, o.visual_highlight_size);
+                assign_if_some!(default.opts.auto_candidate_elimination, o.auto_candidate_elimination);
             }
             if let Some(keymaps) = &config.keymaps {
                 default.keymaps = match parse_config_keymaps(&keymaps) {
@@ -138,12 +145,20 @@ impl Settings {
                 b: 0.0,
                 a: 0.4,
             },
+            visual_highlight_color: Color {
+                r: 0.4,
+                g: 0.4,
+                b: 0.7,
+                a: 1.0,
+            },
         };
         let opts = Opts {
             highlight_box: true,
             highlight_in_line: true,
             highlight_cell: true,
             command_font_size: BASE_COMMAND_FONT_SIZE,
+            visual_highlight_size: 5.0,
+            auto_candidate_elimination: false,
         };
         Self {
             colors,
@@ -152,6 +167,9 @@ impl Settings {
             font,
             keymaps: HashMap::new(),
         }
+    }
+    pub fn get_highlight_size(&self, box_size: f32) -> f32 {
+        self.opts.visual_highlight_size * (box_size / BASE_BOX_SIZE)
     }
     pub fn get_lengths(&self, min_size: f32) -> (f32, f32) {
         let offset = self.lines.outer_width * 2.0
@@ -174,17 +192,17 @@ impl Settings {
     }
 
     pub fn get_x_num_offset(&self, box_size: f32) -> f32 {
-        10.0 * (box_size / BASE_BOX_SIZE)
+        9.0 * (box_size / BASE_BOX_SIZE)
     }
     pub fn get_x_note_offset(&self, box_size: f32) -> f32 {
         4.0 * (box_size / BASE_BOX_SIZE)
     }
 
     pub fn get_y_num_offset(&self, box_size: f32) -> f32 {
-        (BASE_BOX_SIZE - 5.) * (box_size / BASE_BOX_SIZE)
+        (BASE_BOX_SIZE - 4.) * (box_size / BASE_BOX_SIZE)
     }
     pub fn get_y_note_offset(&self, box_size: f32) -> f32 {
-        (BASE_BOX_SIZE - 38.) * (box_size / BASE_BOX_SIZE)
+        (BASE_BOX_SIZE - 37.) * (box_size / BASE_BOX_SIZE)
     }
 }
 
@@ -211,6 +229,7 @@ fn default_keymaps() -> HashMap<(String, String), String> {
     new_keymap!(hmap, nm, n, i; "g" => "go");
     new_keymap!(hmap, nm, n, g; "i" => "insert");
     new_keymap!(hmap, nm, i, g; "n" => "note");
+    new_keymap!(hmap, nm, n, i, g; " " => "mark");
 
     hmap
 }

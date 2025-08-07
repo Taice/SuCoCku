@@ -17,4 +17,5 @@ pub struct Colors {
 
     pub highlight_main: Color,
     pub highlight_sub: Color,
+    pub visual_highlight_color: Color,
 }
