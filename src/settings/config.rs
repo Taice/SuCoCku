@@ -18,6 +18,7 @@ pub struct Colors {
     pub box_line: Option<[f32; 4]>,
     pub normal_line: Option<[f32; 4]>,
     pub window_gaps: Option<[f32; 4]>,
+    pub selected_window: Option<[f32; 4]>,
 
     pub normal_font_color: Option<[f32; 4]>,
     pub note_font_color: Option<[f32; 4]>,
@@ -42,6 +43,7 @@ pub struct Lines {
 
 #[derive(Debug, Deserialize)]
 pub struct Opts {
+    pub outer_gaps: Option<f32>,
     pub command_font_size: Option<u16>,
     pub visual_highlight_size: Option<f32>,
 

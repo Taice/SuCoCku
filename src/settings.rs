@@ -69,8 +69,9 @@ impl Settings {
                 assign_if_some_map!(default.colors.bg_color, colors.bg_color, into);
                 assign_if_some_map!(default.colors.outer_color, colors.outer_line, into);
                 assign_if_some_map!(default.colors.box_color, colors.box_line, into);
-                assign_if_some_map!(default.colors.window_gaps, colors.window_gaps, into);
                 assign_if_some_map!(default.colors.normal_color, colors.normal_line, into);
+                assign_if_some_map!(default.colors.window_gaps, colors.window_gaps, into);
+                assign_if_some_map!(default.colors.selected_window, colors.selected_window, into);
 
                 assign_if_some_map!(default.colors.normal_font, colors.normal_font_color, into);
                 assign_if_some_map!(default.colors.note_font, colors.note_font_color, into);
@@ -90,6 +91,7 @@ impl Settings {
             }
 
             if let Some(o) = &config.opts {
+                assign_if_some!(default.opts.outer_gaps, o.outer_gaps);
                 assign_if_some!(default.opts.command_font_size, o.command_font_size);
                 assign_if_some!(default.opts.visual_highlight_size, o.visual_highlight_size);
                 assign_if_some!(

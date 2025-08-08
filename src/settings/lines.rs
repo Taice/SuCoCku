@@ -11,7 +11,7 @@ impl Default for Lines {
             outer_width: 5.0,
             box_width: 4.0,
             normal_width: 2.0,
-            window_gaps: 4.0,
+            window_gaps: 6.0,
         }
     }
 }

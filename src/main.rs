@@ -8,7 +8,6 @@ use std::{process::exit, rc::Rc};
 use directories::ProjectDirs;
 use macroquad::prelude::*;
 use settings::{Settings, config::Config};
-use sudoku::Sudoku;
 
 use crate::frame::Frame;
 
@@ -60,4 +59,11 @@ fn load_config() -> std::io::Result<Config> {
         }
     };
     Ok(config)
+}
+
+pub fn draw_rect_outlines(r: Rect, t: f32, color: Color) {
+    draw_rectangle(r.x, r.y, t, r.h, color);
+    draw_rectangle(r.x, r.y, r.w, t, color);
+    draw_rectangle(r.x + r.w - t, r.y, t, r.h, color);
+    draw_rectangle(r.x, r.y + r.h - t, r.w, t, color);
 }

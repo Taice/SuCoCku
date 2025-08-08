@@ -1,8 +1,8 @@
-mod message;
 mod mode;
 mod sudoku_board;
 
 use crate::{
+    draw_rect_outlines,
     settings::{FONT_SCALE, Settings},
     sudoku::{
         mode::Mode,
@@ -800,32 +800,8 @@ pub fn draw_inlines(s: &Settings, dimensions: &Rect, side: f32, box_size: f32) {
 }
 
 pub fn draw_outlines(s: &Settings, dimensions: &Rect, side: f32) {
-    // Draw Sudoku lines
-    draw_rectangle(
-        dimensions.x,
-        dimensions.y,
-        side,
-        s.lines.outer_width,
-        s.colors.outer_color,
-    );
-    draw_rectangle(
-        dimensions.x,
-        dimensions.y,
-        s.lines.outer_width,
-        side,
-        s.colors.outer_color,
-    );
-    draw_rectangle(
-        dimensions.x + side - s.lines.outer_width,
-        dimensions.y,
-        s.lines.outer_width,
-        side,
-        s.colors.outer_color,
-    );
-    draw_rectangle(
-        dimensions.x,
-        dimensions.y + side - s.lines.outer_width,
-        side,
+    draw_rect_outlines(
+        Rect::new(dimensions.x, dimensions.y, side, side),
         s.lines.outer_width,
         s.colors.outer_color,
     );

@@ -12,26 +12,26 @@ pub enum Split {
 }
 
 impl Split {
-    pub fn idx(&self, wanted: usize, idx: &mut usize) -> Option<&Window> {
+    pub fn idx(&self, wanted: usize, idx: &mut usize) -> Option<&Split> {
         match self {
             Self::Split(lhs, rhs, _, _) => rhs.idx(wanted, idx).or_else(|| lhs.idx(wanted, idx)),
-            Split::Window(window) => {
+            Split::Window(_) => {
                 if *idx == wanted {
-                    return Some(window);
+                    return Some(self);
                 }
                 *idx += 1;
                 None
             }
         }
     }
-    pub fn idx_mut(&mut self, wanted: usize, idx: &mut usize) -> Option<&mut Window> {
+    pub fn idx_mut(&mut self, wanted: usize, idx: &mut usize) -> Option<&mut Split> {
         match self {
-            Self::Split(lhs, rhs, _, _) => lhs
+            Self::Split(lhs, rhs, _, _) => rhs
                 .idx_mut(wanted, idx)
-                .or_else(|| rhs.idx_mut(wanted, idx)),
-            Split::Window(window) => {
+                .or_else(|| lhs.idx_mut(wanted, idx)),
+            Split::Window(_) => {
                 if *idx == wanted {
-                    return Some(window);
+                    return Some(self);
                 }
                 *idx += 1;
                 None
@@ -44,8 +44,8 @@ impl Split {
             Split::Window(window) => {
                 dimensions.y += gap_size / 2.;
                 dimensions.x += gap_size / 2.;
-                dimensions.w += gap_size / 2.;
-                dimensions.h += gap_size / 2.;
+                dimensions.w -= gap_size;
+                dimensions.h -= gap_size;
 
                 window.dimensions = dimensions;
             }
@@ -89,6 +89,7 @@ impl Split {
     pub fn iter(&self) -> SplitIterator {
         SplitIterator::new(self)
     }
+    #[allow(dead_code)]
     pub fn iter_mut(&mut self) -> SplitIteratorMut {
         SplitIteratorMut::new(self)
     }

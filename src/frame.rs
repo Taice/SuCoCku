@@ -3,18 +3,21 @@ pub mod window;
 
 use macroquad::prelude::*;
 use split::Split;
-use std::ops::Index;
+use std::ops::{Index, IndexMut};
 use std::rc::Rc;
 
 use window::Window;
 
 use window::buffer::Buffer;
 
+use crate::draw_rect_outlines;
 use crate::frame::split::SplitDirection;
 use crate::settings::Settings;
 
 pub struct Tab {
     pub inner: Split,
+
+    pub windows: usize,
     pub selected_idx: usize,
 }
 
@@ -25,9 +28,15 @@ impl Tab {
 }
 
 impl<Idx: Into<usize>> Index<Idx> for Tab {
-    type Output = Window;
+    type Output = Split;
     fn index(&self, index: Idx) -> &Self::Output {
         self.inner.idx(index.into(), &mut 0).unwrap()
+    }
+}
+
+impl<Idx: Into<usize>> IndexMut<Idx> for Tab {
+    fn index_mut(&mut self, index: Idx) -> &mut Self::Output {
+        self.inner.idx_mut(index.into(), &mut 0).unwrap()
     }
 }
 
@@ -46,35 +55,9 @@ impl Frame {
         let mut ret = Self {
             // test
             tabs: vec![Tab {
+                windows: 1,
                 selected_idx: 0,
-                inner: Split::Split(
-                    Box::new(Split::Split(
-                        Box::new(Split::Split(
-                            Box::new(Split::Window(Window {
-                                dimensions: Rect::default(),
-                                buffer_index: 0,
-                            })),
-                            Box::new(Split::Window(Window {
-                                dimensions: Rect::default(),
-                                buffer_index: 0,
-                            })),
-                            0.50,
-                            SplitDirection::Horizontal,
-                        )),
-                        Box::new(Split::Window(Window {
-                            dimensions: Rect::default(),
-                            buffer_index: 0,
-                        })),
-                        0.5,
-                        SplitDirection::Vertical,
-                    )),
-                    Box::new(Split::Window(Window {
-                        dimensions: Rect::default(),
-                        buffer_index: 0,
-                    })),
-                    0.5,
-                    SplitDirection::Horizontal,
-                ),
+                inner: Split::Window(Window::new(Rect::default(), 0)),
             }],
             curr_tab: 0,
             buffers: vec![Buffer::new(Rc::clone(&settings))],
@@ -86,22 +69,33 @@ impl Frame {
     }
     pub fn draw(&mut self) {
         clear_background(self.settings.colors.bg_color);
+
         let half = self.settings.lines.window_gaps / 2.;
         for window in self.tabs[self.curr_tab].inner.iter() {
             window.render(&self.buffers[window.buffer_index]);
-            let mut dimensions = window.dimensions;
-            dimensions.y -= half;
-            dimensions.x -= half;
-            dimensions.w += self.settings.lines.window_gaps;
-            dimensions.h += self.settings.lines.window_gaps;
-            draw_rectangle_lines(
-                dimensions.x,
-                dimensions.y,
-                dimensions.w,
-                dimensions.h,
+            let dimensions = window.dimensions;
+            draw_rect_outlines(
+                Rect::new(
+                    dimensions.x - half,
+                    dimensions.y - half,
+                    dimensions.w + self.settings.lines.window_gaps,
+                    dimensions.h + self.settings.lines.window_gaps,
+                ),
                 half,
                 self.settings.colors.window_gaps,
             );
+        }
+        if let Split::Window(win) = self.tabs[self.curr_tab][self.tabs[self.curr_tab].selected_idx]
+        {
+            let mut dimensions = win.dimensions;
+            dimensions.x -= half;
+            dimensions.y -= half;
+            dimensions.w += self.settings.lines.window_gaps;
+            dimensions.h += self.settings.lines.window_gaps;
+
+            draw_rect_outlines(dimensions, half, self.settings.colors.selected_window);
+        } else {
+            unreachable!();
         }
     }
 
@@ -115,28 +109,136 @@ impl Frame {
         self.handle_input();
     }
 
+    fn split(&mut self, direction: SplitDirection) {
+        match self.tabs[self.curr_tab][self.tabs[self.curr_tab].selected_idx] {
+            Split::Split(..) => unreachable!(),
+            Split::Window(win) => {
+                let win = win.clone();
+                let idx = self.tabs[self.curr_tab].selected_idx;
+                self.tabs[self.curr_tab][idx] = Split::Split(
+                    Box::new(Split::Window(win)),
+                    Box::new(Split::Window(win)),
+                    0.5,
+                    direction,
+                );
+                self.tabs[self.curr_tab].windows += 1;
+            }
+        }
+        self.resize();
+    }
+
+    fn kill_pane(&mut self) {
+
+    }
+
+    fn move_up(&mut self) {
+        let win = &self.tabs[self.curr_tab][self.tabs[self.curr_tab].selected_idx];
+        let point;
+        if let Split::Window(win) = win {
+            point = vec2(
+                win.dimensions.x + 2.,
+                win.dimensions.y - self.settings.lines.window_gaps * 2. - 4.,
+            );
+        } else {
+            unreachable!()
+        }
+
+        for (i, x) in self.tabs[self.curr_tab].inner.iter().enumerate() {
+            if x.dimensions.contains(point) {
+                self.tabs[self.curr_tab].selected_idx = i;
+                break;
+            }
+        }
+    }
+    fn move_down(&mut self) {
+        let win = &self.tabs[self.curr_tab][self.tabs[self.curr_tab].selected_idx];
+        let point;
+        if let Split::Window(win) = win {
+            point = vec2(
+                win.dimensions.x + 2.,
+                win.dimensions.y + win.dimensions.h + self.settings.lines.window_gaps * 2. + 4.,
+            );
+        } else {
+            unreachable!()
+        }
+
+        for (i, x) in self.tabs[self.curr_tab].inner.iter().enumerate() {
+            if x.dimensions.contains(point) {
+                self.tabs[self.curr_tab].selected_idx = i;
+                break;
+            }
+        }
+    }
+    fn move_right(&mut self) {
+        let win = &self.tabs[self.curr_tab][self.tabs[self.curr_tab].selected_idx];
+        let point;
+        if let Split::Window(win) = win {
+            point = vec2(
+                win.dimensions.x + win.dimensions.w + self.settings.lines.window_gaps * 2. + 4.,
+                win.dimensions.y + 2.,
+            );
+        } else {
+            unreachable!()
+        }
+
+        for (i, x) in self.tabs[self.curr_tab].inner.iter().enumerate() {
+            if x.dimensions.contains(point) {
+                self.tabs[self.curr_tab].selected_idx = i;
+                break;
+            }
+        }
+    }
+    fn move_left(&mut self) {
+        let win = &self.tabs[self.curr_tab][self.tabs[self.curr_tab].selected_idx];
+        let point;
+        if let Split::Window(win) = win {
+            point = vec2(
+                win.dimensions.x - self.settings.lines.window_gaps * 2. - 4.,
+                win.dimensions.y + 2.,
+            );
+        } else {
+            unreachable!()
+        }
+
+        for (i, x) in self.tabs[self.curr_tab].inner.iter().enumerate() {
+            if x.dimensions.contains(point) {
+                self.tabs[self.curr_tab].selected_idx = i;
+                break;
+            }
+        }
+    }
+
     fn handle_input(&mut self) {
         if is_key_down(KeyCode::LeftControl) {
-            get_char_pressed();
+            if let Some(ch) = get_char_pressed() {
+                match ch {
+                    '-' => self.split(SplitDirection::Horizontal),
+                    '\\' => self.split(SplitDirection::Vertical),
+                    'h' => self.move_left(),
+                    'l' => self.move_right(),
+                    'k' => self.move_up(),
+                    'j' => self.move_down(),
+                    _ => (),
+                }
+            }
         } else {
-            let selected_win = self.tabs[self.curr_tab]
-                .inner
-                .idx(self.tabs[self.curr_tab].selected_idx, &mut 0)
-                .unwrap();
-            selected_win.update(&mut self.buffers[selected_win.buffer_index]);
+            if let Split::Window(selected_win) =
+                &self.tabs[self.curr_tab][self.tabs[self.curr_tab].selected_idx]
+            {
+                selected_win.update(&mut self.buffers[selected_win.buffer_index]);
+            }
         }
     }
 
     fn resize(&mut self) {
+        let gaps = self.settings.opts.outer_gaps;
         let dimensions = Rect {
-            x: 0.0,
-            y: 0.0,
-            w: self.size.0,
-            h: self.size.1,
+            x: gaps,
+            y: gaps,
+            w: self.size.0 - gaps * 2.,
+            h: self.size.1 - gaps * 2.,
         };
 
-        self.tabs[self.curr_tab]
-            .inner
-            .resize(dimensions, self.settings.lines.window_gaps);
+        self.tabs[self.curr_tab].resize(dimensions, self.settings.lines.window_gaps / 2.);
     }
 }
