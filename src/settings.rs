@@ -55,6 +55,7 @@ impl Settings {
                 assign_if_some!(default.lines.outer_width, lines.outer_line_width);
                 assign_if_some!(default.lines.box_width, lines.box_line_width);
                 assign_if_some!(default.lines.normal_width, lines.normal_line_width);
+                assign_if_some!(default.lines.window_gaps, lines.window_gaps);
             }
 
             if let Some(colors) = &config.colors {
@@ -68,6 +69,7 @@ impl Settings {
                 assign_if_some_map!(default.colors.bg_color, colors.bg_color, into);
                 assign_if_some_map!(default.colors.outer_color, colors.outer_line, into);
                 assign_if_some_map!(default.colors.box_color, colors.box_line, into);
+                assign_if_some_map!(default.colors.window_gaps, colors.window_gaps, into);
                 assign_if_some_map!(default.colors.normal_color, colors.normal_line, into);
 
                 assign_if_some_map!(default.colors.normal_font, colors.normal_font_color, into);

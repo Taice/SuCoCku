@@ -1,174 +1,22 @@
+mod message;
 mod mode;
+mod sudoku_board;
 
 use crate::{
     settings::{FONT_SCALE, Settings},
-    sudoku::mode::Mode,
+    sudoku::{
+        mode::Mode,
+        sudoku_board::{BacktrackResult, SudokuBoard},
+    },
     unwrap_or_else,
 };
 
 use arboard::Clipboard;
 use macroquad::prelude::*;
-use std::{
-    f32,
-    ops::{Deref, DerefMut, Index, IndexMut},
-};
+use std::{f32, rc::Rc};
 
 const NOTE_FLAG: u16 = 15;
 const ALL_NOTES: u16 = 0b1000000111111111;
-
-#[derive(PartialEq, Eq, Clone, Copy)]
-struct SudokuBoard([[u16; 9]; 9]);
-
-#[derive(PartialEq, Eq, Clone, Copy)]
-enum BacktrackResult {
-    OneSolution(SudokuBoard),
-    MoreSolutions,
-    NoSolution,
-}
-
-impl SudokuBoard {
-    fn from_str(&mut self, str: &str) -> Option<SudokuBoard> {
-        let mut new = SudokuBoard([[0; 9]; 9]);
-        for (i, x) in str.chars().enumerate() {
-            if !x.is_ascii_digit() {
-                return None;
-            }
-            new[(i / 9, i % 9)] = (x as u8 - b'0') as u16;
-        }
-        Some(new)
-    }
-
-    pub fn fill_cell_candidates(&mut self) {
-        for row in &mut self.0 {
-            for col in row {
-                if *col == 0 || is_note(*col) {
-                    *col = ALL_NOTES
-                }
-            }
-        }
-        for y in 0u8..9 {
-            for x in 0..9 {
-                self.fix_notes_around(y, x);
-            }
-        }
-    }
-
-    fn fix_notes_around(&mut self, y: u8, x: u8) {
-        let mut num = self[(y, x)];
-        if num == 0 || is_note(num) {
-            return;
-        }
-        num -= 1;
-        // check in boxes
-        for y in ((y / 3) * 3)..((y / 3) * 3 + 3) {
-            for x in ((x / 3) * 3)..((x / 3) * 3 + 3) {
-                if is_note(self[(y, x)]) {
-                    // turn n bit off
-                    self[(y, x)] &= !(1 << num);
-                }
-            }
-        }
-        for n in 0u8..9 {
-            // check in row
-            if is_note(self[(y, n)]) {
-                n_bit_off(&mut self[(y, n)], num);
-            }
-            // check in col
-            if is_note(self[(n, x)]) {
-                n_bit_off(&mut self[(n, x)], num);
-            }
-        }
-    }
-
-    pub fn solve(&mut self) -> BacktrackResult {
-        return self.backtrack(&mut BacktrackResult::NoSolution);
-    }
-    fn backtrack(&mut self, solve_state: &mut BacktrackResult) -> BacktrackResult {
-        if !self.is_valid() {
-            return *solve_state;
-        }
-        if let Some((y, x)) = self.find_empty_space() {
-            let before = self[(y, x)];
-            for num in 1..=9 {
-                self[(y, x)] = num;
-
-                match self.backtrack(solve_state) {
-                    BacktrackResult::NoSolution => (),
-                    BacktrackResult::MoreSolutions => return BacktrackResult::MoreSolutions,
-                    solved => *solve_state = solved,
-                }
-            }
-            self[(y, x)] = before;
-            return *solve_state;
-        } else {
-            return if matches!(*solve_state, BacktrackResult::OneSolution(_)) {
-                BacktrackResult::MoreSolutions
-            } else {
-                BacktrackResult::OneSolution(self.clone())
-            };
-        }
-    }
-
-    pub fn is_valid(&self) -> bool {
-        let mut rows = [[false; 9]; 9];
-        let mut cols = [[false; 9]; 9];
-        let mut boxes = [[false; 9]; 9];
-
-        for (i, row) in self.0.iter().enumerate() {
-            for (j, n) in row.iter().enumerate() {
-                if *n == 0 || is_note(*n) {
-                    continue;
-                }
-                let num = *n as usize - 1;
-                let box_index = get_box_index(i, j);
-
-                if rows[i][num] || cols[j][num] || boxes[box_index][num] {
-                    return false;
-                }
-
-                rows[i][num] = true;
-                cols[j][num] = true;
-                boxes[box_index][num] = true;
-            }
-        }
-        true
-    }
-
-    fn find_empty_space(&self) -> Option<(usize, usize)> {
-        for (i, row) in self.0.iter().enumerate() {
-            for (j, cell) in row.iter().enumerate() {
-                if *cell == 0 || is_note(*cell) {
-                    return Some((i, j));
-                }
-            }
-        }
-        None
-    }
-}
-
-impl Deref for SudokuBoard {
-    type Target = [[u16; 9]; 9];
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-impl DerefMut for SudokuBoard {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl<T: Into<usize>> Index<(T, T)> for SudokuBoard {
-    type Output = u16;
-    fn index(&self, index: (T, T)) -> &Self::Output {
-        &self.0[index.0.into()][index.1.into()]
-    }
-}
-impl<T: Into<usize>> IndexMut<(T, T)> for SudokuBoard {
-    fn index_mut(&mut self, index: (T, T)) -> &mut Self::Output {
-        &mut self.0[index.0.into()][index.1.into()]
-    }
-}
 
 #[derive(Default)]
 struct Selection([u16; 9]);
@@ -190,7 +38,7 @@ impl Selection {
 pub struct Sudoku {
     board: SudokuBoard,
     only_solution: Option<SudokuBoard>,
-    settings: Settings,
+    settings: Rc<Settings>,
     mode: Mode,
 
     cmd: String,
@@ -205,7 +53,7 @@ pub struct Sudoku {
 }
 
 impl Sudoku {
-    pub fn new(settings: Settings) -> Self {
+    pub fn new(settings: Rc<Settings>) -> Self {
         Self {
             only_solution: None,
             board: SudokuBoard(
@@ -215,7 +63,7 @@ impl Sudoku {
                     0
                 }; 9]; 9],
             ),
-            settings,
+            settings: Rc::clone(&settings),
             mode: Mode::Normal,
 
             selected: Selection::default(),
@@ -230,23 +78,34 @@ impl Sudoku {
         }
     }
 
-    pub fn draw(&self) {
-        clear_background(self.settings.colors.bg_color);
+    pub fn draw(&self, mut dimensions: Rect) {
         let cmd_size = self.settings.get_cmd_size();
-        let min_len = f32::min(screen_width(), screen_height() - cmd_size);
+        let min_len = f32::min(dimensions.w, dimensions.h - cmd_size);
         let (side, box_size) = self.settings.get_lengths(min_len);
 
-        draw_rectangle(0., 0., side, side, WHITE);
-        draw_inlines(&self.settings, side, box_size);
-        draw_box_lines(&self.settings, side, box_size);
-        draw_outlines(&self.settings, side);
+        let height_offset = (dimensions.h - side - cmd_size) / 2.;
+        let width_offset = (dimensions.w - side) / 2.;
 
-        self.draw_grid(box_size);
-        self.draw_cmd_line(cmd_size, side);
-        self.draw_statusbar(cmd_size / 2., side);
+        dimensions.x += width_offset;
+        dimensions.y += height_offset;
+
+        draw_rectangle(
+            dimensions.x,
+            dimensions.y,
+            side,
+            side,
+            self.settings.colors.square_color,
+        );
+        draw_inlines(&self.settings, &dimensions, side, box_size);
+        draw_box_lines(&self.settings, &dimensions, side, box_size);
+        draw_outlines(&self.settings, &dimensions, side);
+
+        self.draw_grid(&dimensions, box_size);
+        self.draw_cmd_line(&dimensions, cmd_size, side);
+        self.draw_statusbar(&dimensions, cmd_size / 2., side);
     }
 
-    fn draw_grid(&self, square_size: f32) {
+    fn draw_grid(&self, dimensions: &Rect, square_size: f32) {
         let text_params = TextParams {
             font: Some(&self.settings.font),
             font_size: self.settings.get_num_font_size(square_size),
@@ -262,8 +121,8 @@ impl Sudoku {
 
         let highlight_size = self.settings.get_highlight_size(square_size);
 
-        let mut y = self.settings.lines.outer_width;
-        let mut x = self.settings.lines.outer_width;
+        let mut y = self.settings.lines.outer_width + dimensions.y;
+        let mut x = self.settings.lines.outer_width + dimensions.x;
         for (i, row) in self.board.iter().enumerate() {
             let num_y = y + y_num_offset;
             let note_y = y + y_note_offset;
@@ -406,7 +265,7 @@ impl Sudoku {
                 }
                 x += square_size;
             }
-            x = self.settings.lines.outer_width;
+            x = self.settings.lines.outer_width + dimensions.x;
 
             if i % 3 == 2 {
                 y += self.settings.lines.box_width;
@@ -416,8 +275,14 @@ impl Sudoku {
             y += square_size;
         }
     }
-    fn draw_statusbar(&self, bar_size: f32, side: f32) {
-        draw_rectangle(0.0, side, side, bar_size, self.settings.colors.status_bg);
+    fn draw_statusbar(&self, dimensions: &Rect, bar_size: f32, side: f32) {
+        draw_rectangle(
+            dimensions.x,
+            side + dimensions.y,
+            side,
+            bar_size,
+            self.settings.colors.status_bg,
+        );
         let text_params = TextParams {
             font: Some(&self.settings.font),
             font_size: self.settings.opts.command_font_size,
@@ -426,11 +291,11 @@ impl Sudoku {
             ..Default::default()
         };
         let y_offset = -4.0;
-        let y = side + bar_size + y_offset;
+        let y = dimensions.y + side + bar_size + y_offset;
 
         draw_text_ex(
             &format!("-- {} --", self.mode.to_string().to_uppercase()),
-            0.0,
+            dimensions.x,
             y,
             text_params.clone(),
         );
@@ -449,11 +314,17 @@ impl Sudoku {
         )
         .width;
 
-        let x = side - width;
+        let x = dimensions.x + side - width;
         draw_text_ex(&text, x, y, text_params);
     }
-    fn draw_cmd_line(&self, cmd_size: f32, side: f32) {
-        draw_rectangle(0.0, side, side, cmd_size, self.settings.colors.cmd_bg);
+    fn draw_cmd_line(&self, dimensions: &Rect, cmd_size: f32, side: f32) {
+        draw_rectangle(
+            dimensions.x,
+            dimensions.y + side,
+            side,
+            cmd_size,
+            self.settings.colors.cmd_bg,
+        );
         let text_params = TextParams {
             font: Some(&self.settings.font),
             font_size: self.settings.opts.command_font_size,
@@ -462,8 +333,8 @@ impl Sudoku {
             ..Default::default()
         };
         let y_offset = -4.0;
-        let y = side + cmd_size + y_offset;
-        draw_text_ex(&self.cmd, 0.0, y, text_params);
+        let y = dimensions.y + side + cmd_size + y_offset;
+        draw_text_ex(&self.cmd, dimensions.x, y, text_params);
     }
 
     pub fn update(&mut self) {
@@ -874,12 +745,24 @@ impl Sudoku {
     }
 }
 
-pub fn draw_box_lines(s: &Settings, side: f32, box_size: f32) {
+pub fn draw_box_lines(s: &Settings, dimensions: &Rect, side: f32, box_size: f32) {
     let mut point = box_size + s.lines.outer_width;
     for n in 1..9 {
         if n % 3 == 0 {
-            draw_rectangle(point, 0.0, s.lines.box_width, side, s.colors.box_color);
-            draw_rectangle(0.0, point, side, s.lines.box_width, s.colors.box_color);
+            draw_rectangle(
+                dimensions.x + point,
+                dimensions.y,
+                s.lines.box_width,
+                side,
+                s.colors.box_color,
+            );
+            draw_rectangle(
+                dimensions.x,
+                dimensions.y + point,
+                side,
+                s.lines.box_width,
+                s.colors.box_color,
+            );
             point += s.lines.box_width;
         } else {
             point += s.lines.normal_width;
@@ -889,20 +772,20 @@ pub fn draw_box_lines(s: &Settings, side: f32, box_size: f32) {
     }
 }
 
-pub fn draw_inlines(s: &Settings, side: f32, box_size: f32) {
+pub fn draw_inlines(s: &Settings, dimensions: &Rect, side: f32, box_size: f32) {
     let mut point = box_size + s.lines.outer_width;
     for n in 1..9 {
         if n % 3 != 0 {
             draw_rectangle(
-                point,
-                0.0,
+                dimensions.x + point,
+                dimensions.y,
                 s.lines.normal_width,
                 side,
                 s.colors.normal_color,
             );
             draw_rectangle(
-                0.0,
-                point,
+                dimensions.x,
+                dimensions.y + point,
                 side,
                 s.lines.normal_width,
                 s.colors.normal_color,
@@ -916,41 +799,36 @@ pub fn draw_inlines(s: &Settings, side: f32, box_size: f32) {
     }
 }
 
-pub fn draw_outlines(s: &Settings, side: f32) {
-    let half = s.lines.outer_width / 2.;
+pub fn draw_outlines(s: &Settings, dimensions: &Rect, side: f32) {
     // Draw Sudoku lines
-    draw_line(
-        0.0,
-        half,
-        side,
-        half,
-        s.lines.outer_width,
-        s.colors.outer_color,
-    ); // TOP_LEFT_RIGHT
-    draw_line(
-        half,
-        0.0,
-        half,
+    draw_rectangle(
+        dimensions.x,
+        dimensions.y,
         side,
         s.lines.outer_width,
         s.colors.outer_color,
-    ); // TOP_LEFT_BOT
-    draw_line(
-        side - half,
-        0.0,
-        side - half,
+    );
+    draw_rectangle(
+        dimensions.x,
+        dimensions.y,
+        s.lines.outer_width,
+        side,
+        s.colors.outer_color,
+    );
+    draw_rectangle(
+        dimensions.x + side - s.lines.outer_width,
+        dimensions.y,
+        s.lines.outer_width,
+        side,
+        s.colors.outer_color,
+    );
+    draw_rectangle(
+        dimensions.x,
+        dimensions.y + side - s.lines.outer_width,
         side,
         s.lines.outer_width,
         s.colors.outer_color,
-    ); // TOP_RIGHT_BOT    
-    draw_line(
-        half,
-        side - half,
-        side,
-        side - half,
-        s.lines.outer_width,
-        s.colors.outer_color,
-    ); // BOT_LEFT_RIGHT
+    );
 }
 
 pub fn draw_notes(s: &Settings, box_size: f32, x: f32, y: f32, num: u16, font: &Font) {
@@ -980,12 +858,6 @@ pub fn draw_notes(s: &Settings, box_size: f32, x: f32, y: f32, num: u16, font: &
         coords.0 = x;
         coords.1 += note_size;
     }
-}
-
-fn get_box_index(y: impl Into<usize>, x: impl Into<usize>) -> usize {
-    let y = y.into();
-    let x = x.into();
-    (y / 3) * 3 + (x / 3)
 }
 
 fn is_note(num: u16) -> bool {

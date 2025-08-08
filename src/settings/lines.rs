@@ -2,6 +2,7 @@ pub struct Lines {
     pub outer_width: f32,
     pub box_width: f32,
     pub normal_width: f32,
+    pub window_gaps: f32,
 }
 
 impl Default for Lines {
@@ -10,6 +11,7 @@ impl Default for Lines {
             outer_width: 5.0,
             box_width: 4.0,
             normal_width: 2.0,
+            window_gaps: 4.0,
         }
     }
 }

@@ -1,13 +1,16 @@
+mod frame;
 mod settings;
 mod sudoku;
 mod unwrap_or_else;
 
-use std::process::exit;
+use std::{process::exit, rc::Rc};
 
 use directories::ProjectDirs;
 use macroquad::prelude::*;
 use settings::{Settings, config::Config};
 use sudoku::Sudoku;
+
+use crate::frame::Frame;
 
 fn window_conf() -> Conf {
     Conf {
@@ -27,12 +30,12 @@ async fn main() {
     } else {
         None
     };
-    let settings = Settings::from_config(&config);
+    let settings = Rc::new(Settings::from_config(&config));
+    let mut frame = Frame::new(settings);
 
-    let mut sudoku = Sudoku::new(settings);
     loop {
-        sudoku.draw();
-        sudoku.update();
+        frame.draw();
+        frame.update();
         next_frame().await;
     }
 }

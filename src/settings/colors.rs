@@ -6,6 +6,7 @@ pub struct Colors {
     pub outer_color: Color,
     pub box_color: Color,
     pub normal_color: Color,
+    pub window_gaps: Color,
 
     pub normal_font: Color,
     pub note_font: Color,
@@ -26,6 +27,7 @@ impl Default for Colors {
             bg_color: WHITE,
             outer_color: BLACK,
             box_color: BLACK,
+            window_gaps: BLACK,
             normal_color: DARKGRAY,
             normal_font: Color {
                 r: 0.2,
