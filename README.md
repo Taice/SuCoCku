@@ -23,6 +23,6 @@
     - [x] auto eliminate candidates
     - [x] input checking
     - [ ] undo
-- [ ] Meta features
-    - [ ] tabs
+- [x] Meta features
+    - [x] tabs
     - [x] splits
