@@ -22,6 +22,7 @@
     - [x] auto fill candidates
     - [x] auto eliminate candidates
     - [x] input checking
+    - [x] highlight given number
     - [ ] undo
 - [x] Meta features
     - [x] tabs
