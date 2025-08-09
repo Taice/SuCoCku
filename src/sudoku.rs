@@ -517,7 +517,7 @@ impl Sudoku {
                 if let Some(c) = get_char_pressed() {
                     match c {
                         '0'..='9' => *num = c as u8 - b'0',
-                        _ => (),
+                        _ => self.update_keybind(c),
                     }
                 }
             }
