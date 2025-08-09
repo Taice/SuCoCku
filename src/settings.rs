@@ -117,6 +117,10 @@ impl Settings {
                 );
                 assign_if_some!(default.opts.auto_fill_candidates, o.auto_fill_candidates);
                 assign_if_some!(default.opts.check_input, o.check_input);
+                assign_if_some!(
+                    default.opts.highlight_square_instead_of_note,
+                    o.highlight_square_instead_of_note
+                );
             }
             if let Some(keymaps) = &config.keymaps {
                 default.keymaps = match parse_config_keymaps(&keymaps) {
