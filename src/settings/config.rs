@@ -7,7 +7,7 @@ pub struct Config {
     pub colors: Option<Colors>,
     pub lines: Option<Lines>,
     pub opts: Option<Opts>,
-    pub keymaps: Option<HashMap<String, String>>
+    pub keymaps: Option<HashMap<String, String>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -19,6 +19,10 @@ pub struct Colors {
     pub normal_line: Option<[f32; 4]>,
     pub window_gaps: Option<[f32; 4]>,
     pub selected_window: Option<[f32; 4]>,
+    pub selected_tab: Option<[f32; 4]>,
+    pub selected_tab_font: Option<[f32; 4]>,
+    pub inactive_tab_font: Option<[f32; 4]>,
+    pub inactive_tab_color: Option<[f32; 4]>,
 
     pub normal_font_color: Option<[f32; 4]>,
     pub note_font_color: Option<[f32; 4]>,
@@ -45,6 +49,8 @@ pub struct Lines {
 pub struct Opts {
     pub outer_gaps: Option<f32>,
     pub command_font_size: Option<u16>,
+    pub tabline_font_size: Option<u16>,
+    pub tabline_gap: Option<f32>,
     pub visual_highlight_size: Option<f32>,
 
     pub auto_candidate_elimination: Option<bool>,

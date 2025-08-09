@@ -8,6 +8,10 @@ pub struct Colors {
     pub normal_color: Color,
     pub window_gaps: Color,
     pub selected_window: Color,
+    pub selected_tab: Color,
+    pub selected_tab_font: Color,
+    pub inactive_tab_font: Color,
+    pub inactive_tab_color: Color,
 
     pub normal_font: Color,
     pub note_font: Color,
@@ -30,6 +34,10 @@ impl Default for Colors {
             box_color: BLACK,
             window_gaps: BLACK,
             selected_window: GRAY,
+            selected_tab: DARKGRAY,
+            selected_tab_font: BLACK,
+            inactive_tab_font: WHITE,
+            inactive_tab_color: GRAY,
 
             normal_color: DARKGRAY,
             normal_font: Color {

@@ -33,6 +33,7 @@ pub const FONT_SCALE: f32 = 0.5;
 const BASE_NUM_FONT_SIZE: u16 = 122;
 const BASE_NOTE_FONT_SIZE: u16 = 35;
 const BASE_COMMAND_FONT_SIZE: u16 = 40;
+const BASE_TABLINE_FONT_SIZE: u16 = 40;
 
 pub const BASE_BOX_SIZE: f32 = 468.0 / 9.;
 
@@ -72,6 +73,10 @@ impl Settings {
                 assign_if_some_map!(default.colors.normal_color, colors.normal_line, into);
                 assign_if_some_map!(default.colors.window_gaps, colors.window_gaps, into);
                 assign_if_some_map!(default.colors.selected_window, colors.selected_window, into);
+                assign_if_some_map!(default.colors.selected_tab, colors.selected_tab, into);
+                assign_if_some_map!(default.colors.selected_tab_font, colors.selected_tab_font, into);
+                assign_if_some_map!(default.colors.inactive_tab_font, colors.inactive_tab_font, into);
+                assign_if_some_map!(default.colors.inactive_tab_color, colors.inactive_tab_color, into);
 
                 assign_if_some_map!(default.colors.normal_font, colors.normal_font_color, into);
                 assign_if_some_map!(default.colors.note_font, colors.note_font_color, into);
@@ -93,6 +98,8 @@ impl Settings {
             if let Some(o) = &config.opts {
                 assign_if_some!(default.opts.outer_gaps, o.outer_gaps);
                 assign_if_some!(default.opts.command_font_size, o.command_font_size);
+                assign_if_some!(default.opts.tabline_font_size, o.tabline_font_size);
+                assign_if_some!(default.opts.tabline_gap, o.tabline_gap);
                 assign_if_some!(default.opts.visual_highlight_size, o.visual_highlight_size);
                 assign_if_some!(
                     default.opts.auto_candidate_elimination,
@@ -146,8 +153,12 @@ impl Settings {
     pub fn get_note_font_size(&self, box_size: f32) -> u16 {
         (BASE_NOTE_FONT_SIZE as f32 * (box_size / BASE_BOX_SIZE)) as u16
     }
+
     pub fn get_cmd_size(&self) -> f32 {
         ((self.opts.command_font_size as f32 / BASE_COMMAND_FONT_SIZE as f32) * 22. * 2.).ceil()
+    }
+    pub fn get_tabline_size(&self) -> f32 {
+        ((self.opts.tabline_font_size as f32 / BASE_TABLINE_FONT_SIZE as f32) * 22.).ceil()
     }
 
     pub fn get_x_num_offset(&self, box_size: f32) -> f32 {
@@ -162,6 +173,10 @@ impl Settings {
     }
     pub fn get_y_note_offset(&self, box_size: f32) -> f32 {
         (BASE_BOX_SIZE - 37.) * (box_size / BASE_BOX_SIZE)
+    }
+
+    pub fn get_y_tab_offset(&self) -> f32 {
+        -8. * (self.opts.tabline_font_size as f32 / BASE_TABLINE_FONT_SIZE as f32)
     }
 }
 

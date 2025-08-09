@@ -1,8 +1,10 @@
-use crate::settings::BASE_COMMAND_FONT_SIZE;
+use crate::settings::{BASE_COMMAND_FONT_SIZE, BASE_TABLINE_FONT_SIZE};
 
 pub struct Opts {
     pub outer_gaps: f32,
     pub command_font_size: u16,
+    pub tabline_font_size: u16,
+    pub tabline_gap: f32,
     pub visual_highlight_size: f32,
 
     pub auto_candidate_elimination: bool,
@@ -16,6 +18,8 @@ impl Default for Opts {
         Opts {
             outer_gaps: 4.0,
             command_font_size: BASE_COMMAND_FONT_SIZE,
+            tabline_font_size: BASE_TABLINE_FONT_SIZE,
+            tabline_gap: 4.0,
             visual_highlight_size: 3.0,
 
             auto_candidate_elimination: false,
