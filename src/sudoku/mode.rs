@@ -4,6 +4,7 @@ use std::fmt::Display;
 pub enum Mode {
     Command,
     Normal,
+    Highlight(u8),
     Insert,
     Note,
     Go(u8),

@@ -32,8 +32,7 @@ pub struct Colors {
     pub cmd_bg_color: Option<[f32; 4]>,
     pub status_bg_color: Option<[f32; 4]>,
 
-    pub highlight_main: Option<[f32; 4]>,
-    pub highlight_sub: Option<[f32; 4]>,
+    pub highlight_color: Option<[f32; 4]>,
     pub visual_highlight_color: Option<[f32; 4]>,
 }
 
@@ -57,4 +56,6 @@ pub struct Opts {
     pub auto_fill_candidates: Option<bool>,
 
     pub check_input: Option<bool>,
+
+    pub highlight_square_instead_of_note: Option<bool>,
 }

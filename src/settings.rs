@@ -42,7 +42,6 @@ pub struct Settings {
     pub colors: Colors,
     pub opts: Opts,
     pub font: Font,
-    /// <(mode, keybind), action>
     pub keymaps: HashMap<(String, String), String>,
 }
 
@@ -74,9 +73,21 @@ impl Settings {
                 assign_if_some_map!(default.colors.window_gaps, colors.window_gaps, into);
                 assign_if_some_map!(default.colors.selected_window, colors.selected_window, into);
                 assign_if_some_map!(default.colors.selected_tab, colors.selected_tab, into);
-                assign_if_some_map!(default.colors.selected_tab_font, colors.selected_tab_font, into);
-                assign_if_some_map!(default.colors.inactive_tab_font, colors.inactive_tab_font, into);
-                assign_if_some_map!(default.colors.inactive_tab_color, colors.inactive_tab_color, into);
+                assign_if_some_map!(
+                    default.colors.selected_tab_font,
+                    colors.selected_tab_font,
+                    into
+                );
+                assign_if_some_map!(
+                    default.colors.inactive_tab_font,
+                    colors.inactive_tab_font,
+                    into
+                );
+                assign_if_some_map!(
+                    default.colors.inactive_tab_color,
+                    colors.inactive_tab_color,
+                    into
+                );
 
                 assign_if_some_map!(default.colors.normal_font, colors.normal_font_color, into);
                 assign_if_some_map!(default.colors.note_font, colors.note_font_color, into);
@@ -86,8 +97,7 @@ impl Settings {
                 assign_if_some_map!(default.colors.cmd_bg, colors.cmd_bg_color, into);
                 assign_if_some_map!(default.colors.status_bg, colors.status_bg_color, into);
 
-                assign_if_some_map!(default.colors.highlight_main, colors.highlight_main, into);
-                assign_if_some_map!(default.colors.highlight_sub, colors.highlight_sub, into);
+                assign_if_some_map!(default.colors.highlight_color, colors.highlight_color, into);
                 assign_if_some_map!(
                     default.colors.visual_highlight_color,
                     colors.visual_highlight_color,
@@ -174,10 +184,6 @@ impl Settings {
     pub fn get_y_note_offset(&self, box_size: f32) -> f32 {
         (BASE_BOX_SIZE - 37.) * (box_size / BASE_BOX_SIZE)
     }
-
-    pub fn get_y_tab_offset(&self) -> f32 {
-        -8. * (self.opts.tabline_font_size as f32 / BASE_TABLINE_FONT_SIZE as f32)
-    }
 }
 
 macro_rules! new_keymap {
@@ -195,18 +201,20 @@ fn default_keymaps() -> HashMap<(String, String), String> {
     let n = "note";
     let i = "insert";
     let g = "go";
+    let h = "highlight";
 
-    new_keymap!(hmap, nm, n, i; "h" => "move left");
-    new_keymap!(hmap, nm, n, i; "j" => "move down");
-    new_keymap!(hmap, nm, n, i; "k" => "move up");
-    new_keymap!(hmap, nm, n, i; "l" => "move right");
-    new_keymap!(hmap, nm, n, i, g; " " => "mark");
+    new_keymap!(hmap, nm, n, i, h; "h" => "move left");
+    new_keymap!(hmap, nm, n, i, h; "j" => "move down");
+    new_keymap!(hmap, nm, n, i, h; "k" => "move up");
+    new_keymap!(hmap, nm, n, i, h; "l" => "move right");
+    new_keymap!(hmap, nm, n, i, h, g; " " => "mark");
 
-    new_keymap!(hmap, nm; "g" => "go");
-    new_keymap!(hmap, nm; "i" => "insert");
-    new_keymap!(hmap, nm, "visual"; "n" => "note");
+    new_keymap!(hmap, nm, n, i, h; "g" => "go");
+    new_keymap!(hmap, nm, n, g, h; "i" => "insert");
+    new_keymap!(hmap, nm, i, g, h, "visual"; "n" => "note");
+    new_keymap!(hmap, nm, i, n, g, "visual"; "H" => "highlight");
 
-    new_keymap!(hmap, nm, n; "v" => "mode visual");
+    new_keymap!(hmap, nm, n, i, h; "v" => "mode visual");
     new_keymap!(hmap, "visual"; "h" => "mark; move left");
     new_keymap!(hmap, "visual"; "j" => "mark; move down");
     new_keymap!(hmap, "visual"; "k" => "mark; move up");

@@ -3,6 +3,7 @@ mod sudoku_board;
 
 use crate::{
     draw_rect_outlines,
+    frame::center_text,
     settings::{FONT_SCALE, Settings},
     sudoku::{
         mode::Mode,
@@ -79,11 +80,10 @@ impl Sudoku {
     }
 
     pub fn draw(&self, mut dimensions: Rect) {
-        let cmd_size = self.settings.get_cmd_size();
-        let min_len = f32::min(dimensions.w, dimensions.h - cmd_size);
+        let min_len = f32::min(dimensions.w, dimensions.h);
         let (side, box_size) = self.settings.get_lengths(min_len);
 
-        let height_offset = (dimensions.h - side - cmd_size) / 2.;
+        let height_offset = (dimensions.h - side) / 2.;
         let width_offset = (dimensions.w - side) / 2.;
 
         dimensions.x += width_offset;
@@ -101,8 +101,6 @@ impl Sudoku {
         draw_outlines(&self.settings, &dimensions, side);
 
         self.draw_grid(&dimensions, box_size);
-        self.draw_cmd_line(&dimensions, cmd_size, side);
-        self.draw_statusbar(&dimensions, cmd_size / 2., side);
     }
 
     fn draw_grid(&self, dimensions: &Rect, square_size: f32) {
@@ -113,6 +111,8 @@ impl Sudoku {
             color: self.settings.colors.normal_font,
             ..Default::default()
         };
+
+        let third = square_size / 3.;
 
         let x_note_offset = self.settings.get_x_note_offset(square_size);
         let y_note_offset = self.settings.get_y_note_offset(square_size);
@@ -239,9 +239,36 @@ impl Sudoku {
                         }
                     }
                 }
+                // draw num
                 if *n != 0 {
-                    // note
                     if is_note(*n) {
+                        // draw_highlights
+                        if let Mode::Highlight(num) = self.mode
+                            && num != 0
+                            && *n & (1 << (num - 1)) > 0
+                        {
+                            if self.settings.opts.highlight_square_instead_of_note {
+                                draw_rectangle(
+                                    x,
+                                    y,
+                                    square_size,
+                                    square_size,
+                                    self.settings.colors.highlight_color,
+                                );
+                            } else {
+                                let note_x = x + ((num - 1) % 3) as f32 * third;
+                                let note_y = y + ((num - 1) / 3) as f32 * third;
+
+                                draw_rectangle(
+                                    note_x,
+                                    note_y,
+                                    third,
+                                    third,
+                                    self.settings.colors.highlight_color,
+                                );
+                            }
+                        }
+
                         let x = x + x_note_offset;
                         draw_notes(
                             &self.settings,
@@ -251,8 +278,18 @@ impl Sudoku {
                             *n,
                             &self.settings.font,
                         );
-                    // num
                     } else {
+                        if let Mode::Highlight(num) = self.mode
+                            && num as u16 == *n
+                        {
+                            draw_rectangle(
+                                x,
+                                y,
+                                square_size,
+                                square_size,
+                                self.settings.colors.highlight_color,
+                            );
+                        }
                         let x = x + x_num_offset;
                         draw_text_ex(&n.to_string(), x, num_y, text_params.clone());
                     }
@@ -275,12 +312,12 @@ impl Sudoku {
             y += square_size;
         }
     }
-    fn draw_statusbar(&self, dimensions: &Rect, bar_size: f32, side: f32) {
+    pub fn draw_statusbar(&self, dimensions: &Rect) {
         draw_rectangle(
             dimensions.x,
-            side + dimensions.y,
-            side,
-            bar_size,
+            dimensions.y,
+            dimensions.w,
+            dimensions.h,
             self.settings.colors.status_bg,
         );
         let text_params = TextParams {
@@ -290,15 +327,15 @@ impl Sudoku {
             color: self.settings.colors.status_font,
             ..Default::default()
         };
-        let y_offset = -4.0;
-        let y = dimensions.y + side + bar_size + y_offset;
-
-        draw_text_ex(
-            &format!("-- {} --", self.mode.to_string().to_uppercase()),
-            dimensions.x,
-            y,
-            text_params.clone(),
+        let text = format!("-- {} --", self.mode.to_string().to_uppercase());
+        let centered = center_text(
+            &text,
+            &self.settings.font,
+            self.settings.opts.command_font_size,
+            *dimensions,
         );
+
+        draw_text_ex(&text, dimensions.x, centered.y, text_params.clone());
 
         let text;
         if self.repeat > 0 {
@@ -314,15 +351,15 @@ impl Sudoku {
         )
         .width;
 
-        let x = dimensions.x + side - width;
-        draw_text_ex(&text, x, y, text_params);
+        let x = dimensions.x + dimensions.w - width;
+        draw_text_ex(&text, x, centered.y, text_params);
     }
-    fn draw_cmd_line(&self, dimensions: &Rect, cmd_size: f32, side: f32) {
+    pub fn draw_cmd_line(&self, dimensions: &Rect) {
         draw_rectangle(
             dimensions.x,
-            dimensions.y + side,
-            side,
-            cmd_size,
+            dimensions.y,
+            dimensions.w,
+            dimensions.h,
             self.settings.colors.cmd_bg,
         );
         let text_params = TextParams {
@@ -332,9 +369,13 @@ impl Sudoku {
             color: self.settings.colors.cmd_font,
             ..Default::default()
         };
-        let y_offset = -4.0;
-        let y = dimensions.y + side + cmd_size + y_offset;
-        draw_text_ex(&self.cmd, dimensions.x, y, text_params);
+        let centered = center_text(
+            "BIG BANANA PENCIL",
+            &self.settings.font,
+            self.settings.opts.command_font_size,
+            *dimensions,
+        );
+        draw_text_ex(&self.cmd, dimensions.x + 2.0, centered.y, text_params);
     }
 
     pub fn update(&mut self) {
@@ -459,7 +500,7 @@ impl Sudoku {
                     }
                 }
             }
-            Mode::Custom(_) => {
+            Mode::Custom(..) => {
                 if let Some(c) = get_char_pressed() {
                     match c {
                         '0'..='9' => {
@@ -469,6 +510,14 @@ impl Sudoku {
                                 .saturating_add(c as u8 - b'0');
                         }
                         _ => self.update_keybind(c),
+                    }
+                }
+            }
+            Mode::Highlight(num) => {
+                if let Some(c) = get_char_pressed() {
+                    match c {
+                        '0'..='9' => *num = c as u8 - b'0',
+                        _ => (),
                     }
                 }
             }
@@ -543,6 +592,7 @@ impl Sudoku {
             "mark"           => self.mark(),
             "fill"           => self.board.fill_cell_candidates(),
             "import"         => self.import_clipboard(),
+            "highlight"      => self.highlight(repeat),
             _ => {
                 self.cmd_log(format!("Invalid command: {str}"));
             }
@@ -691,6 +741,10 @@ impl Sudoku {
         } else {
             self.mode = Mode::Go(0);
         }
+    }
+
+    fn highlight(&mut self, repeat: Option<u8>) {
+        self.mode = Mode::Highlight(repeat.unwrap_or_default());
     }
 
     fn mode(&mut self, mode: &str) {

@@ -11,6 +11,8 @@ pub struct Opts {
     pub auto_fill_candidates: bool,
 
     pub check_input: bool,
+
+    pub highlight_square_instead_of_note: bool,
 }
 
 impl Default for Opts {
@@ -26,6 +28,8 @@ impl Default for Opts {
             auto_fill_candidates: false,
 
             check_input: true,
+
+            highlight_square_instead_of_note: false,
         }
     }
 }

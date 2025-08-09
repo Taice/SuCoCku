@@ -21,8 +21,7 @@ pub struct Colors {
     pub cmd_bg: Color,
     pub status_bg: Color,
 
-    pub highlight_main: Color,
-    pub highlight_sub: Color,
+    pub highlight_color: Color,
     pub visual_highlight_color: Color,
 }
 impl Default for Colors {
@@ -54,17 +53,11 @@ impl Default for Colors {
 
             note_font: DARKGRAY,
 
-            highlight_sub: Color {
-                r: 0.0,
-                g: 0.0,
-                b: 0.0,
-                a: 0.2,
-            },
-            highlight_main: Color {
-                r: 0.0,
-                g: 0.0,
-                b: 0.0,
-                a: 0.4,
+            highlight_color: Color {
+                r: 0.4,
+                g: 0.4,
+                b: 0.8,
+                a: 0.9,
             },
             visual_highlight_color: Color {
                 r: 0.4,
