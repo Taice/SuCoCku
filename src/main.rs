@@ -16,7 +16,7 @@ fn window_conf() -> Conf {
         window_title: "Sudoku".to_string(),
         window_width: 500,
         window_height: 500,
-        fullscreen: false,
+        fullscreen: true,
         window_resizable: true,
         ..Default::default()
     }

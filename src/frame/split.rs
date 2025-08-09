@@ -1,3 +1,5 @@
+use std::fmt::{self, Display};
+
 use crate::frame::window::Window;
 use macroquad::prelude::*;
 
@@ -6,9 +8,37 @@ pub enum SplitDirection {
     Horizontal,
 }
 
+impl Display for SplitDirection {
+   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", match self {
+            Self::Vertical => "V",
+            Self::Horizontal => "H",
+        })
+    } 
+}
+
 pub enum Split {
     Window(Window),
     Split(Box<Split>, Box<Split>, f32, SplitDirection),
+}
+
+impl fmt::Display for Split {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fn fmt_tree(node: &Split, f: &mut fmt::Formatter<'_>, indent: usize) -> fmt::Result {
+            let pad = " ".repeat(indent);
+            match node {
+                Split::Window(..) => {
+                    writeln!(f, "{}Window", pad)
+                }
+                Split::Split(left, right, _, dir) => {
+                    writeln!(f, "{}Split {}", pad, dir)?;
+                    fmt_tree(left, f, indent + 2)?;
+                    fmt_tree(right, f, indent + 2)
+                }
+            }
+        }
+        fmt_tree(self, f, 0)
+    }
 }
 
 impl Split {
@@ -82,6 +112,33 @@ impl Split {
                 };
                 left.resize(left_dimensions, gap_size);
                 right.resize(right_dimensions, gap_size);
+            }
+        }
+    }
+
+    pub fn kill_pane(&mut self, wanted: usize, idx: &mut usize) -> bool {
+        match self {
+            Self::Split(lhs, rhs, _, _) => {
+                if rhs.kill_pane(wanted, idx) {
+                    let new_self = std::mem::replace(&mut **lhs, Self::Window(Window::default()));
+                    *self = new_self;
+                    return false;
+                }
+                if lhs.kill_pane(wanted, idx) {
+                    let new_self = std::mem::replace(&mut **rhs, Self::Window(Window::default()));
+                    *self = new_self;
+                    return false;
+                }
+                false
+            }
+            Self::Window(_) => {
+                if *idx == wanted {
+                    *idx += 1;
+                    true
+                } else {
+                    *idx += 1;
+                    false
+                }
             }
         }
     }

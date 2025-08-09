@@ -4,7 +4,7 @@ use macroquad::prelude::*;
 
 use buffer::Buffer;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Default, Debug, Clone, Copy)]
 pub struct Window {
     pub dimensions: Rect,
     pub buffer_index: usize,
