@@ -9,8 +9,10 @@
 - [x] Commands
     - [x] set 
     - [x] {action} (everything that can be done can be done with a command)
-- [x] Config file
-    - [x] fully custom binds
+- [ ] Config file
+    - [ ] fully custom binds
+        - [x] custom sudoku binds
+        - [ ] custom frame binds
     - [x] fully custom colors
     - [x] fully custom line sizes
     - [x] you get the idea
