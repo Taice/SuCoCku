@@ -1,6 +1,6 @@
 use std::ops::{Deref, DerefMut, Index, IndexMut};
 
-use crate::sudoku::{ALL_NOTES, is_note, n_bit_off};
+use crate::sudoku::{ALL_NOTES, history::Change, is_note, n_bit_off};
 
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub struct SudokuBoard(pub [[u16; 9]; 9]);
@@ -24,22 +24,34 @@ impl SudokuBoard {
         Some(new)
     }
 
-    pub fn fill_cell_candidates(&mut self) {
-        for row in &mut self.0 {
-            for col in row {
+    pub fn fill_cell_candidates(&mut self, changes: &mut Vec<Change>) {
+        let bbefore = self.clone();
+
+        for row in &mut self.0.iter_mut() {
+            for col in row.iter_mut() {
                 if *col == 0 || is_note(*col) {
-                    *col = ALL_NOTES
+                    *col = ALL_NOTES;
                 }
             }
         }
         for y in 0u8..9 {
             for x in 0..9 {
-                self.fix_notes_around(y, x);
+                self.fix_notes_around(y, x, &mut vec![]);
+            }
+        }
+
+        for (i, (row1, row2)) in self.0.iter().zip(bbefore.iter()).enumerate() {
+            for (j, (&after, &before)) in row1.iter().zip(row2).enumerate() {
+                changes.push(Change {
+                    pos: (i as u8, j as u8),
+                    before,
+                    after,
+                });
             }
         }
     }
 
-    pub fn fix_notes_around(&mut self, y: u8, x: u8) {
+    pub fn fix_notes_around(&mut self, y: u8, x: u8, history_changes: &mut Vec<Change>) {
         let mut num = self[(y, x)];
         if num == 0 || is_note(num) {
             return;
@@ -48,20 +60,38 @@ impl SudokuBoard {
         // check in boxes
         for y in ((y / 3) * 3)..((y / 3) * 3 + 3) {
             for x in ((x / 3) * 3)..((x / 3) * 3 + 3) {
-                if is_note(self[(y, x)]) {
+                let n = self[(y, x)];
+                if is_note(n) {
                     // turn n bit off
                     self[(y, x)] &= !(1 << num);
+                    history_changes.push(Change {
+                        pos: (y, x),
+                        before: n,
+                        after: self[(y, x)],
+                    });
                 }
             }
         }
         for n in 0u8..9 {
             // check in row
-            if is_note(self[(y, n)]) {
+            let row_n = self[(y, n)];
+            if is_note(row_n) {
                 n_bit_off(&mut self[(y, n)], num);
+                history_changes.push(Change {
+                    pos: (y, n),
+                    before: row_n,
+                    after: self[(y, n)],
+                });
             }
+            let col_n = self[(n, x)];
             // check in col
-            if is_note(self[(n, x)]) {
+            if is_note(col_n) {
                 n_bit_off(&mut self[(n, x)], num);
+                history_changes.push(Change {
+                    pos: (n, x),
+                    before: col_n,
+                    after: self[(n, x)],
+                });
             }
         }
     }
@@ -69,6 +99,7 @@ impl SudokuBoard {
     pub fn solve(&mut self) -> BacktrackResult {
         return self.backtrack(&mut BacktrackResult::NoSolution);
     }
+
     fn backtrack(&mut self, solve_state: &mut BacktrackResult) -> BacktrackResult {
         if !self.is_valid() {
             return *solve_state;
@@ -87,7 +118,7 @@ impl SudokuBoard {
             self[(y, x)] = before;
             return *solve_state;
         } else {
-            return if matches!(*solve_state, BacktrackResult::OneSolution(_)) {
+            return if let BacktrackResult::OneSolution(..) = *solve_state {
                 BacktrackResult::MoreSolutions
             } else {
                 BacktrackResult::OneSolution(self.clone())

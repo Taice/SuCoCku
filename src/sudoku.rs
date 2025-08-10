@@ -1,11 +1,15 @@
+mod history;
 mod mode;
 mod sudoku_board;
+
+use history::History;
 
 use crate::{
     draw_rect_outlines,
     frame::center_text,
     settings::{FONT_SCALE, Settings},
     sudoku::{
+        history::Change,
         mode::Mode,
         sudoku_board::{BacktrackResult, SudokuBoard},
     },
@@ -44,6 +48,8 @@ pub struct Sudoku {
 
     cmd: String,
 
+    history: History,
+
     selected: Selection,
 
     curr_keybind: String,
@@ -56,6 +62,7 @@ pub struct Sudoku {
 impl Sudoku {
     pub fn new(settings: Rc<RefCell<Settings>>) -> Self {
         Self {
+            history: History::default(),
             only_solution: None,
             board: SudokuBoard(
                 [[if settings.borrow().opts.auto_fill_candidates {
@@ -591,10 +598,16 @@ impl Sudoku {
             "move"   | "mov" => self.mov(args, repeat),
             "mode"           => self.mode(args),
             "mark"           => self.mark(),
-            "fill"           => self.board.fill_cell_candidates(),
+            "fill"           => { 
+                let mut changes = Vec::with_capacity(81);
+                self.board.fill_cell_candidates(&mut changes);
+                self.history.record_change(changes);
+            },
             "import"         => self.import_clipboard(),
             "highlight"      => self.highlight(repeat),
             "set" | "se"     => self.set(args),
+            "undo"           => self.undo(),
+            "redo"           => self.redo(),
             _ => {
                 self.cmd_log(format!("Invalid command: {str}"));
             }
@@ -685,9 +698,16 @@ impl Sudoku {
                     }
                 }
             }
+            let mut changes = vec![Change {
+                pos: (self.row, self.col),
+                before,
+                after: num as u16,
+            }];
             if self.settings.borrow().opts.auto_candidate_elimination {
-                self.board.fix_notes_around(self.row, self.col);
+                self.board
+                    .fix_notes_around(self.row, self.col, &mut changes);
             }
+            self.history.record_change(changes);
         } else {
             self.mode = Mode::Insert;
         }
@@ -695,6 +715,7 @@ impl Sudoku {
 
     fn note(&mut self, repeat: Option<u8>) {
         if let Some(note) = repeat {
+            let mut changes = vec![];
             if !(1..=9).contains(&note) {
                 self.cmd = "Invalid usage: <note>note".to_string();
                 return;
@@ -703,8 +724,14 @@ impl Sudoku {
             if !self.selected.get(self.row, self.col) {
                 let cell = &mut self.board[(self.row, self.col)];
                 if *cell == 0 || is_note(*cell) {
+                    let n = *cell;
                     n_bit_on(cell, NOTE_FLAG);
                     toggle_bit(cell, note - 1);
+                    changes.push(Change {
+                        pos: (self.row, self.col),
+                        before: n,
+                        after: *cell,
+                    });
                 } else {
                     self.cmd_log("Err: Cell is already filled with a number".to_string());
                 }
@@ -717,11 +744,20 @@ impl Sudoku {
                     if *row & (1 << col) > 0 {
                         let cell = &mut self.board[(i, col)];
                         if *cell == 0 || is_note(*cell) {
+                            let n = *cell;
                             n_bit_on(cell, NOTE_FLAG);
                             toggle_bit(cell, note - 1);
+                            changes.push(Change {
+                                pos: (i as u8, col as u8),
+                                before: n,
+                                after: *cell,
+                            });
                         }
                     }
                 }
+            }
+            if !changes.is_empty() {
+                self.history.record_change(changes);
             }
         } else {
             self.mode = Mode::Note;
@@ -771,7 +807,7 @@ impl Sudoku {
                     return;
                 });
                 if self.settings.borrow().opts.auto_fill_candidates {
-                    self.board.fill_cell_candidates();
+                    self.board.fill_cell_candidates(&mut vec![]);
                 }
 
                 let mut new_new = new.clone();
@@ -791,7 +827,7 @@ impl Sudoku {
 
                 self.board = new;
                 if self.settings.borrow().opts.auto_fill_candidates {
-                    self.board.fill_cell_candidates();
+                    self.board.fill_cell_candidates(&mut vec![]);
                 }
             }
             Err(e) => {
@@ -832,6 +868,22 @@ impl Sudoku {
                 _ => (),
             },
             _ => (),
+        }
+    }
+
+    fn undo(&mut self) {
+        if let Some(changes) = self.history.undo() {
+            for change in changes {
+                self.board[change.pos] = change.before;
+            }
+        }
+    }
+
+    fn redo(&mut self) {
+        if let Some(changes) = self.history.redo() {
+            for change in changes {
+                self.board[change.pos] = change.after;
+            }
         }
     }
 }

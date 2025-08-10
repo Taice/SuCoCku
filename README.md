@@ -17,12 +17,12 @@
 - [x] Visual
     - [x] comand line
     - [x] see current keybind (statusbar?)
-- [ ] sudoku features
+- [x] sudoku features
     - [x] auto fill candidates
     - [x] auto eliminate candidates
     - [x] input checking
     - [x] highlight given number
-    - [ ] undo
+    - [x] undo
 - [x] Meta features
     - [x] tabs
     - [x] buffers
