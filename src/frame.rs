@@ -201,15 +201,27 @@ impl Frame {
     }
 
     fn handle_input_buffer(&mut self) {
+        if let Some(k) = get_last_key_pressed() {
+            match k {
+                KeyCode::Tab => {
+                    self.switch_buffer(1);
+                    return;
+                }
+                KeyCode::Escape => {
+                    self.mode = Mode::Normal;
+                }
+                _ => (),
+            }
+        }
         if let Some(c) = get_char_pressed() {
+            self.mode = Mode::Normal;
             match c {
                 'l' => self.switch_buffer(1),
                 'h' => self.switch_buffer(-1),
                 'n' => self.new_buffer(),
                 'k' => self.kill_buffer(),
-                _ => (),
+                _ => self.mode = Mode::Buffer,
             }
-            self.mode = Mode::Normal;
         }
     }
 
