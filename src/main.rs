@@ -3,7 +3,7 @@ mod settings;
 mod sudoku;
 mod unwrap_or_else;
 
-use std::{process::exit, rc::Rc};
+use std::{process::exit};
 
 use directories::ProjectDirs;
 use macroquad::prelude::*;
@@ -29,7 +29,7 @@ async fn main() {
     } else {
         None
     };
-    let settings = Rc::new(Settings::from_config(&config));
+    let settings = Settings::from_config(&config);
     let mut frame = Frame::new(settings);
 
     loop {

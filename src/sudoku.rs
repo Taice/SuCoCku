@@ -14,7 +14,7 @@ use crate::{
 
 use arboard::Clipboard;
 use macroquad::prelude::*;
-use std::{f32, rc::Rc};
+use std::{cell::RefCell, f32, rc::Rc};
 
 const NOTE_FLAG: u16 = 15;
 const ALL_NOTES: u16 = 0b1000000111111111;
@@ -39,7 +39,7 @@ impl Selection {
 pub struct Sudoku {
     board: SudokuBoard,
     only_solution: Option<SudokuBoard>,
-    settings: Rc<Settings>,
+    settings: Rc<RefCell<Settings>>,
     mode: Mode,
 
     cmd: String,
@@ -54,11 +54,11 @@ pub struct Sudoku {
 }
 
 impl Sudoku {
-    pub fn new(settings: Rc<Settings>) -> Self {
+    pub fn new(settings: Rc<RefCell<Settings>>) -> Self {
         Self {
             only_solution: None,
             board: SudokuBoard(
-                [[if settings.opts.auto_fill_candidates {
+                [[if settings.borrow().opts.auto_fill_candidates {
                     ALL_NOTES
                 } else {
                     0
@@ -81,7 +81,7 @@ impl Sudoku {
 
     pub fn draw(&self, mut dimensions: Rect) {
         let min_len = f32::min(dimensions.w, dimensions.h);
-        let (side, box_size) = self.settings.get_lengths(min_len);
+        let (side, box_size) = self.settings.borrow().get_lengths(min_len);
 
         let height_offset = (dimensions.h - side) / 2.;
         let width_offset = (dimensions.w - side) / 2.;
@@ -94,35 +94,35 @@ impl Sudoku {
             dimensions.y,
             side,
             side,
-            self.settings.colors.square_color,
+            self.settings.borrow().colors.square_color,
         );
-        draw_inlines(&self.settings, &dimensions, side, box_size);
-        draw_box_lines(&self.settings, &dimensions, side, box_size);
-        draw_outlines(&self.settings, &dimensions, side);
+        draw_inlines(&self.settings.borrow(), &dimensions, side, box_size);
+        draw_box_lines(&self.settings.borrow(), &dimensions, side, box_size);
+        draw_outlines(&self.settings.borrow(), &dimensions, side);
 
         self.draw_grid(&dimensions, box_size);
     }
 
     fn draw_grid(&self, dimensions: &Rect, square_size: f32) {
         let text_params = TextParams {
-            font: Some(&self.settings.font),
-            font_size: self.settings.get_num_font_size(square_size),
+            font: Some(&self.settings.borrow().font),
+            font_size: self.settings.borrow().get_num_font_size(square_size),
             font_scale: FONT_SCALE,
-            color: self.settings.colors.normal_font,
+            color: self.settings.borrow().colors.normal_font,
             ..Default::default()
         };
 
         let third = square_size / 3.;
 
-        let x_note_offset = self.settings.get_x_note_offset(square_size);
-        let y_note_offset = self.settings.get_y_note_offset(square_size);
-        let x_num_offset = self.settings.get_x_num_offset(square_size);
-        let y_num_offset = self.settings.get_y_num_offset(square_size);
+        let x_note_offset = self.settings.borrow().get_x_note_offset(square_size);
+        let y_note_offset = self.settings.borrow().get_y_note_offset(square_size);
+        let x_num_offset = self.settings.borrow().get_x_num_offset(square_size);
+        let y_num_offset = self.settings.borrow().get_y_num_offset(square_size);
 
-        let highlight_size = self.settings.get_highlight_size(square_size);
+        let highlight_size = self.settings.borrow().get_highlight_size(square_size);
 
-        let mut y = self.settings.lines.outer_width + dimensions.y;
-        let mut x = self.settings.lines.outer_width + dimensions.x;
+        let mut y = self.settings.borrow().lines.outer_width + dimensions.y;
+        let mut x = self.settings.borrow().lines.outer_width + dimensions.x;
         for (i, row) in self.board.iter().enumerate() {
             let num_y = y + y_num_offset;
             let note_y = y + y_note_offset;
@@ -155,7 +155,7 @@ impl Sudoku {
                             y,
                             square_size,
                             highlight_size,
-                            self.settings.colors.visual_highlight_color,
+                            self.settings.borrow().colors.visual_highlight_color,
                         );
                         check_corners[0] = false;
                         check_corners[1] = false;
@@ -166,7 +166,7 @@ impl Sudoku {
                             y,
                             highlight_size,
                             square_size,
-                            self.settings.colors.visual_highlight_color,
+                            self.settings.borrow().colors.visual_highlight_color,
                         );
                         check_corners[0] = false;
                         check_corners[3] = false;
@@ -177,7 +177,7 @@ impl Sudoku {
                             y,
                             highlight_size,
                             square_size,
-                            self.settings.colors.visual_highlight_color,
+                            self.settings.borrow().colors.visual_highlight_color,
                         );
                         check_corners[1] = false;
                         check_corners[2] = false;
@@ -188,7 +188,7 @@ impl Sudoku {
                             y + square_size - highlight_size,
                             square_size,
                             highlight_size,
-                            self.settings.colors.visual_highlight_color,
+                            self.settings.borrow().colors.visual_highlight_color,
                         );
                         check_corners[2] = false;
                         check_corners[3] = false;
@@ -201,7 +201,7 @@ impl Sudoku {
                                 y,
                                 highlight_size,
                                 highlight_size,
-                                self.settings.colors.visual_highlight_color,
+                                self.settings.borrow().colors.visual_highlight_color,
                             );
                         }
                     }
@@ -212,7 +212,7 @@ impl Sudoku {
                                 y,
                                 highlight_size,
                                 highlight_size,
-                                self.settings.colors.visual_highlight_color,
+                                self.settings.borrow().colors.visual_highlight_color,
                             );
                         }
                     }
@@ -223,7 +223,7 @@ impl Sudoku {
                                 y + square_size - highlight_size,
                                 highlight_size,
                                 highlight_size,
-                                self.settings.colors.visual_highlight_color,
+                                self.settings.borrow().colors.visual_highlight_color,
                             );
                         }
                     }
@@ -234,7 +234,7 @@ impl Sudoku {
                                 y + square_size - highlight_size,
                                 highlight_size,
                                 highlight_size,
-                                self.settings.colors.visual_highlight_color,
+                                self.settings.borrow().colors.visual_highlight_color,
                             );
                         }
                     }
@@ -247,13 +247,13 @@ impl Sudoku {
                             && num != 0
                             && *n & (1 << (num - 1)) > 0
                         {
-                            if self.settings.opts.highlight_square_instead_of_note {
+                            if self.settings.borrow().opts.highlight_square_instead_of_note {
                                 draw_rectangle(
                                     x,
                                     y,
                                     square_size,
                                     square_size,
-                                    self.settings.colors.highlight_color,
+                                    self.settings.borrow().colors.highlight_color,
                                 );
                             } else {
                                 let note_x = x + ((num - 1) % 3) as f32 * third;
@@ -264,19 +264,19 @@ impl Sudoku {
                                     note_y,
                                     third,
                                     third,
-                                    self.settings.colors.highlight_color,
+                                    self.settings.borrow().colors.highlight_color,
                                 );
                             }
                         }
 
                         let x = x + x_note_offset;
                         draw_notes(
-                            &self.settings,
+                            &self.settings.borrow(),
                             square_size,
                             x,
                             note_y,
                             *n,
-                            &self.settings.font,
+                            &self.settings.borrow().font,
                         );
                     } else {
                         if let Mode::Highlight(num) = self.mode
@@ -287,7 +287,7 @@ impl Sudoku {
                                 y,
                                 square_size,
                                 square_size,
-                                self.settings.colors.highlight_color,
+                                self.settings.borrow().colors.highlight_color,
                             );
                         }
                         let x = x + x_num_offset;
@@ -296,18 +296,18 @@ impl Sudoku {
                 }
 
                 if j % 3 == 2 {
-                    x += self.settings.lines.box_width;
+                    x += self.settings.borrow().lines.box_width;
                 } else {
-                    x += self.settings.lines.normal_width;
+                    x += self.settings.borrow().lines.normal_width;
                 }
                 x += square_size;
             }
-            x = self.settings.lines.outer_width + dimensions.x;
+            x = self.settings.borrow().lines.outer_width + dimensions.x;
 
             if i % 3 == 2 {
-                y += self.settings.lines.box_width;
+                y += self.settings.borrow().lines.box_width;
             } else {
-                y += self.settings.lines.normal_width;
+                y += self.settings.borrow().lines.normal_width;
             }
             y += square_size;
         }
@@ -318,20 +318,20 @@ impl Sudoku {
             dimensions.y,
             dimensions.w,
             dimensions.h,
-            self.settings.colors.status_bg,
+            self.settings.borrow().colors.status_bg,
         );
         let text_params = TextParams {
-            font: Some(&self.settings.font),
-            font_size: self.settings.opts.command_font_size,
+            font: Some(&self.settings.borrow().font),
+            font_size: self.settings.borrow().opts.command_font_size,
             font_scale: FONT_SCALE,
-            color: self.settings.colors.status_font,
+            color: self.settings.borrow().colors.status_font,
             ..Default::default()
         };
         let text = format!("-- {} --", self.mode.to_string().to_uppercase());
         let centered = center_text(
             &text,
-            &self.settings.font,
-            self.settings.opts.command_font_size,
+            &self.settings.borrow().font,
+            self.settings.borrow().opts.command_font_size,
             *dimensions,
         );
 
@@ -345,8 +345,8 @@ impl Sudoku {
         }
         let width = measure_text(
             &text,
-            Some(&self.settings.font),
-            self.settings.opts.command_font_size,
+            Some(&self.settings.borrow().font),
+            self.settings.borrow().opts.command_font_size,
             FONT_SCALE,
         )
         .width;
@@ -360,19 +360,19 @@ impl Sudoku {
             dimensions.y,
             dimensions.w,
             dimensions.h,
-            self.settings.colors.cmd_bg,
+            self.settings.borrow().colors.cmd_bg,
         );
         let text_params = TextParams {
-            font: Some(&self.settings.font),
-            font_size: self.settings.opts.command_font_size,
+            font: Some(&self.settings.borrow().font),
+            font_size: self.settings.borrow().opts.command_font_size,
             font_scale: FONT_SCALE,
-            color: self.settings.colors.cmd_font,
+            color: self.settings.borrow().colors.cmd_font,
             ..Default::default()
         };
         let centered = center_text(
             "BIG BANANA PENCIL",
-            &self.settings.font,
-            self.settings.opts.command_font_size,
+            &self.settings.borrow().font,
+            self.settings.borrow().opts.command_font_size,
             *dimensions,
         );
         draw_text_ex(&self.cmd, dimensions.x + 2.0, centered.y, text_params);
@@ -386,6 +386,7 @@ impl Sudoku {
         let mode = self.mode.to_string();
         let action = if let Some(action) = self
             .settings
+            .borrow()
             .keymaps
             .get(&(mode, self.curr_keybind.clone()))
         {
@@ -457,7 +458,7 @@ impl Sudoku {
                         }
                         _ => {
                             if let Some(ch) = get_char_pressed() {
-                                if ch.is_alphanumeric() || ch == ' ' {
+                                if ch.is_ascii() {
                                     self.cmd.push(ch);
                                 }
                             }
@@ -536,7 +537,7 @@ impl Sudoku {
     fn matching_keymap_exists(&self) -> bool {
         let idx = self.curr_keybind.len();
         let curr_mode = self.mode.to_string();
-        for ((mode, keybind), _) in &self.settings.keymaps {
+        for ((mode, keybind), _) in &self.settings.borrow().keymaps {
             if *mode != curr_mode {
                 continue;
             }
@@ -593,6 +594,7 @@ impl Sudoku {
             "fill"           => self.board.fill_cell_candidates(),
             "import"         => self.import_clipboard(),
             "highlight"      => self.highlight(repeat),
+            "set" | "se"     => self.set(args),
             _ => {
                 self.cmd_log(format!("Invalid command: {str}"));
             }
@@ -663,7 +665,7 @@ impl Sudoku {
 
             let before = self.board[(self.row, self.col)];
             self.board[(self.row, self.col)] = num as u16;
-            if self.settings.opts.check_input {
+            if self.settings.borrow().opts.check_input {
                 if let Some(solution) = &self.only_solution {
                     if solution[(self.row, self.col)] != num as u16 {
                         self.board[(self.row, self.col)] = before;
@@ -683,7 +685,7 @@ impl Sudoku {
                     }
                 }
             }
-            if self.settings.opts.auto_candidate_elimination {
+            if self.settings.borrow().opts.auto_candidate_elimination {
                 self.board.fix_notes_around(self.row, self.col);
             }
         } else {
@@ -768,7 +770,7 @@ impl Sudoku {
                     self.cmd_log("Invalid sudoku".to_string());
                     return;
                 });
-                if self.settings.opts.auto_fill_candidates {
+                if self.settings.borrow().opts.auto_fill_candidates {
                     self.board.fill_cell_candidates();
                 }
 
@@ -788,13 +790,48 @@ impl Sudoku {
                 }
 
                 self.board = new;
-                if self.settings.opts.auto_fill_candidates {
+                if self.settings.borrow().opts.auto_fill_candidates {
                     self.board.fill_cell_candidates();
                 }
             }
             Err(e) => {
                 self.cmd_log(e.to_string());
             }
+        }
+    }
+
+    fn set(&mut self, args: &str) {
+        let idx = unwrap_or_else!(args.find("="), {
+            return;
+        });
+        let property = &args[0..idx];
+        match property.trim() {
+            "candidate-elimination" => match &args[(idx + 1)..] {
+                "true" => self.settings.borrow_mut().opts.auto_candidate_elimination = true,
+                "false" => self.settings.borrow_mut().opts.auto_candidate_elimination = false,
+                _ => (),
+            },
+            "check-input" => match &args[(idx + 1)..] {
+                "true" => self.settings.borrow_mut().opts.check_input = true,
+                "false" => self.settings.borrow_mut().opts.check_input = false,
+                _ => (),
+            },
+            "highlight-square" => match &args[(idx + 1)..] {
+                "true" => {
+                    self.settings
+                        .borrow_mut()
+                        .opts
+                        .highlight_square_instead_of_note = true
+                }
+                "false" => {
+                    self.settings
+                        .borrow_mut()
+                        .opts
+                        .highlight_square_instead_of_note = false
+                }
+                _ => (),
+            },
+            _ => (),
         }
     }
 }
@@ -901,6 +938,7 @@ fn toggle_bit(num: &mut u16, bit: impl Into<u16>) {
 fn n_bit_off(num: &mut u16, bit: impl Into<u16>) {
     *num &= !(1 << bit.into());
 }
+
 fn n_bit_on(num: &mut u16, bit: impl Into<u16>) {
     *num |= 1 << bit.into();
 }

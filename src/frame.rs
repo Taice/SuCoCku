@@ -4,6 +4,7 @@ mod window;
 
 use macroquad::prelude::*;
 use split::Split;
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use window::Window;
@@ -23,12 +24,13 @@ pub struct Frame {
     buffers: Vec<Buffer>,
 
     tabn: usize,
-    settings: Rc<Settings>,
+    settings: Rc<RefCell<Settings>>,
     size: (f32, f32),
 }
 
 impl Frame {
-    pub fn new(settings: Rc<Settings>) -> Self {
+    pub fn new(settings: Settings) -> Self {
+        let settings = Rc::new(RefCell::new(settings));
         let mut ret = Self {
             // test
             tabs: vec![Tab {
@@ -47,9 +49,9 @@ impl Frame {
         ret
     }
     pub fn draw(&mut self) {
-        clear_background(self.settings.colors.bg_color);
+        clear_background(self.settings.borrow().colors.bg_color);
 
-        let half = self.settings.lines.window_gaps / 2.;
+        let half = self.settings.borrow().lines.window_gaps / 2.;
         for window in self.tabs[self.curr_tab].inner.iter() {
             window.render(&self.buffers[window.buffer_index]);
             let dimensions = window.dimensions;
@@ -57,11 +59,11 @@ impl Frame {
                 Rect::new(
                     dimensions.x - half,
                     dimensions.y - half,
-                    dimensions.w + self.settings.lines.window_gaps,
-                    dimensions.h + self.settings.lines.window_gaps,
+                    dimensions.w + self.settings.borrow().lines.window_gaps,
+                    dimensions.h + self.settings.borrow().lines.window_gaps,
                 ),
                 half,
-                self.settings.colors.window_gaps,
+                self.settings.borrow().colors.window_gaps,
             );
         }
         if let Split::Window(win) = self.tabs[self.curr_tab][self.tabs[self.curr_tab].selected] {
@@ -69,28 +71,23 @@ impl Frame {
             let mut dimensions = win.dimensions;
             dimensions.x -= half;
             dimensions.y -= half;
-            dimensions.w += self.settings.lines.window_gaps;
-            dimensions.h += self.settings.lines.window_gaps;
-            draw_rect_outlines(dimensions, half, self.settings.colors.selected_window);
+            dimensions.w += self.settings.borrow().lines.window_gaps;
+            dimensions.h += self.settings.borrow().lines.window_gaps;
+            draw_rect_outlines(dimensions, half, self.settings.borrow().colors.selected_window);
 
             // draw current tab's statusbar/command-line
-            let cmd_size = self.settings.get_cmd_size();
-            let status_rect = Rect::new(
-                0.0,
-                self.size.1 - cmd_size,
-                self.size.0,
-                cmd_size / 2.,
-            );
-            self.buffers[win.buffer_index].data.draw_statusbar(&status_rect);
+            let cmd_size = self.settings.borrow().get_cmd_size();
+            let status_rect = Rect::new(0.0, self.size.1 - cmd_size, self.size.0, cmd_size / 2.);
+            self.buffers[win.buffer_index]
+                .data
+                .draw_statusbar(&status_rect);
             let cmd_rect = Rect::new(
                 status_rect.x,
                 status_rect.y + cmd_size / 2.,
                 status_rect.w,
                 status_rect.h,
             );
-            self.buffers[win.buffer_index]
-                .data
-                .draw_cmd_line(&cmd_rect);
+            self.buffers[win.buffer_index].data.draw_cmd_line(&cmd_rect);
             // draw_rectangle(status_rect.x, status_rect.y, status_rect.w, status_rect.h, GREEN);
             // draw_rectangle(cmd_rect.x, cmd_rect.y, cmd_rect.w, cmd_rect.h, BLUE);
         } else {
@@ -178,10 +175,10 @@ impl Frame {
                 match ch {
                     '\\' => self.split(SplitDirection::Vertical),
                     '-' => self.split(SplitDirection::Horizontal),
-                    'h' => self.tabs[self.curr_tab].move_left(self.settings.lines.window_gaps),
-                    'l' => self.tabs[self.curr_tab].move_right(self.settings.lines.window_gaps),
-                    'k' => self.tabs[self.curr_tab].move_up(self.settings.lines.window_gaps),
-                    'j' => self.tabs[self.curr_tab].move_down(self.settings.lines.window_gaps),
+                    'h' => self.tabs[self.curr_tab].move_left(self.settings.borrow().lines.window_gaps),
+                    'l' => self.tabs[self.curr_tab].move_right(self.settings.borrow().lines.window_gaps),
+                    'k' => self.tabs[self.curr_tab].move_up(self.settings.borrow().lines.window_gaps),
+                    'j' => self.tabs[self.curr_tab].move_down(self.settings.borrow().lines.window_gaps),
                     'x' => self.kill_pane(),
                     't' => self.new_tab(),
                     'w' => self.close_tab(),
@@ -203,8 +200,8 @@ impl Frame {
         for x in &self.tabs {
             let len = measure_text(
                 &x.name,
-                Some(&self.settings.font),
-                self.settings.opts.tabline_font_size,
+                Some(&self.settings.borrow().font),
+                self.settings.borrow().opts.tabline_font_size,
                 FONT_SCALE,
             )
             .width;
@@ -212,36 +209,36 @@ impl Frame {
                 max = len;
             }
         }
-        max += self.settings.opts.tabline_gap * 3.;
+        max += self.settings.borrow().opts.tabline_gap * 3.;
 
-        let tab_size = self.settings.get_tabline_size() + self.settings.opts.tabline_gap * 2.;
+        let tab_size = self.settings.borrow().get_tabline_size() + self.settings.borrow().opts.tabline_gap * 2.;
         let mut rect = Rect::new(
-            self.settings.opts.outer_gaps,
-            self.settings.opts.outer_gaps,
+            self.settings.borrow().opts.outer_gaps,
+            self.settings.borrow().opts.outer_gaps,
             max,
             tab_size,
         );
         let text_params: TextParams = TextParams {
-            font: Some(&self.settings.font),
-            font_size: self.settings.opts.tabline_font_size,
+            font: Some(&self.settings.borrow().font),
+            font_size: self.settings.borrow().opts.tabline_font_size,
             font_scale: FONT_SCALE,
-            color: self.settings.colors.inactive_tab_font,
+            color: self.settings.borrow().colors.inactive_tab_font,
             ..Default::default()
         };
 
         for (i, tab) in self.tabs.iter().enumerate() {
             if i == self.curr_tab {
                 let mut text_params = text_params.clone();
-                text_params.color = self.settings.colors.selected_tab_font;
+                text_params.color = self.settings.borrow().colors.selected_tab_font;
                 draw_rect_outlines(
                     rect,
-                    self.settings.opts.tabline_gap,
-                    self.settings.colors.window_gaps,
+                    self.settings.borrow().opts.tabline_gap,
+                    self.settings.borrow().colors.window_gaps,
                 );
                 let text_pos = center_text(
                     &tab.name,
-                    &self.settings.font,
-                    self.settings.opts.tabline_font_size,
+                    &self.settings.borrow().font,
+                    self.settings.borrow().opts.tabline_font_size,
                     rect,
                 );
                 draw_text_ex(&tab.name, text_pos.x, text_pos.y, text_params);
@@ -252,24 +249,24 @@ impl Frame {
                     rect.y,
                     rect.w,
                     rect.h,
-                    self.settings.colors.inactive_tab_color,
+                    self.settings.borrow().colors.inactive_tab_color,
                 );
                 let text_pos = center_text(
                     &tab.name,
-                    &self.settings.font,
-                    self.settings.opts.tabline_font_size,
+                    &self.settings.borrow().font,
+                    self.settings.borrow().opts.tabline_font_size,
                     rect,
                 );
                 draw_text_ex(&tab.name, text_pos.x, text_pos.y, text_params);
             }
-            rect.x += max + self.settings.opts.tabline_gap * 2.;
+            rect.x += max + self.settings.borrow().opts.tabline_gap * 2.;
         }
     }
 
     fn resize(&mut self) {
-        let gaps = self.settings.opts.outer_gaps;
-        let tabline_size = self.settings.get_tabline_size() + self.settings.opts.tabline_gap * 3.;
-        let cmd_size = self.settings.get_cmd_size();
+        let gaps = self.settings.borrow().opts.outer_gaps;
+        let tabline_size = self.settings.borrow().get_tabline_size() + self.settings.borrow().opts.tabline_gap * 3.;
+        let cmd_size = self.settings.borrow().get_cmd_size();
         let dimensions = Rect {
             x: gaps,
             y: gaps + tabline_size,
@@ -277,7 +274,7 @@ impl Frame {
             h: self.size.1 - gaps * 2. - tabline_size - cmd_size,
         };
 
-        self.tabs[self.curr_tab].resize(dimensions, self.settings.lines.window_gaps);
+        self.tabs[self.curr_tab].resize(dimensions, self.settings.borrow().lines.window_gaps);
     }
 }
 

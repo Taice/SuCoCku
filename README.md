@@ -7,7 +7,7 @@
     - [x] Normal mode
     - [x] Goto mode ({row}{col}g)
 - [x] Commands
-    - [ ] set 
+    - [x] set 
     - [x] {action} (everything that can be done can be done with a command)
 - [x] Config file
     - [x] fully custom binds
@@ -26,4 +26,7 @@
     - [ ] undo
 - [x] Meta features
     - [x] tabs
+    - [ ] buffers
+        - [x] different buffers
+        - [ ] switch between buffers
     - [x] splits

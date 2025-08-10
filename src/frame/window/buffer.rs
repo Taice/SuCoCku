@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 use macroquad::prelude::*;
 
@@ -9,7 +9,7 @@ pub struct Buffer {
 }
 
 impl Buffer {
-    pub fn new(settings: Rc<Settings>) -> Self {
+    pub fn new(settings: Rc<RefCell<Settings>>) -> Self {
         Self {
             data: Sudoku::new(settings),
         }

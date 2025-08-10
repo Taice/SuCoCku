@@ -9,12 +9,16 @@ pub enum SplitDirection {
 }
 
 impl Display for SplitDirection {
-   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", match self {
-            Self::Vertical => "V",
-            Self::Horizontal => "H",
-        })
-    } 
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Vertical => "V",
+                Self::Horizontal => "H",
+            }
+        )
+    }
 }
 
 pub enum Split {
@@ -143,11 +147,11 @@ impl Split {
         }
     }
 
-    pub fn iter(&self) -> SplitIterator {
+    pub fn iter(&self) -> SplitIterator<'_> {
         SplitIterator::new(self)
     }
     #[allow(dead_code)]
-    pub fn iter_mut(&mut self) -> SplitIteratorMut {
+    pub fn iter_mut(&mut self) -> SplitIteratorMut<'_> {
         SplitIteratorMut::new(self)
     }
 }
