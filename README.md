@@ -14,10 +14,9 @@
     - [x] fully custom colors
     - [x] fully custom line sizes
     - [x] you get the idea
-- [ ] Visual
+- [x] Visual
     - [x] comand line
-    - [x] see keybinds (statusbar?)
-    - [ ] which key
+    - [x] see current keybind (statusbar?)
 - [ ] sudoku features
     - [x] auto fill candidates
     - [x] auto eliminate candidates
