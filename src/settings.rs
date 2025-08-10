@@ -224,6 +224,9 @@ fn default_keymaps() -> HashMap<(String, String), String> {
     new_keymap!(hmap, "visual"; "k" => "mark; move up");
     new_keymap!(hmap, "visual"; "l" => "mark; move right");
 
+    new_keymap!(hmap, nm; "u" => "undo");
+    new_keymap!(hmap, nm; "r" => "redo");
+
     hmap
 }
 
