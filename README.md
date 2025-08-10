@@ -26,7 +26,7 @@
     - [ ] undo
 - [x] Meta features
     - [x] tabs
-    - [ ] buffers
+    - [x] buffers
         - [x] different buffers
-        - [ ] switch between buffers
+        - [x] switch between buffers
     - [x] splits

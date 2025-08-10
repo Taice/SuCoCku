@@ -15,6 +15,7 @@ impl Tab {
     pub fn resize(&mut self, dimensions: Rect, gap_size: f32) {
         self.inner.resize(dimensions, gap_size);
     }
+
     pub fn kill_pane(&mut self) {
         if self.windows > 1 {
             self.inner.kill_pane(self.selected, &mut 0);
@@ -24,6 +25,7 @@ impl Tab {
             }
         }
     }
+
     pub fn split(&mut self, direction: SplitDirection) {
         match self[self.selected] {
             Split::Split(..) => unreachable!(),
@@ -40,6 +42,7 @@ impl Tab {
             }
         }
     }
+
     pub fn move_up(&mut self, window_gaps: f32) {
         let win = &self[self.selected];
         let point;
@@ -59,6 +62,7 @@ impl Tab {
             }
         }
     }
+
     pub fn move_down(&mut self, window_gaps: f32) {
         let win = &self[self.selected];
         let point;
@@ -78,6 +82,7 @@ impl Tab {
             }
         }
     }
+
     pub fn move_right(&mut self, window_gaps: f32) {
         let win = &self[self.selected];
         let point;
@@ -97,6 +102,7 @@ impl Tab {
             }
         }
     }
+
     pub fn move_left(&mut self, window_gaps: f32) {
         let win = &self[self.selected];
         let point;
@@ -116,6 +122,13 @@ impl Tab {
             }
         }
     }
+
+    pub fn switch_buffer(&mut self, n: i32, buf_len: usize) {
+        let idx = self.selected;
+        if let Split::Window(win) = &mut self[idx] {
+            win.buffer_index = ((win.buffer_index as i32 + n).rem_euclid(buf_len as i32)) as usize;
+        }
+    }
 }
 
 impl<Idx: Into<usize>> Index<Idx> for Tab {
@@ -130,4 +143,3 @@ impl<Idx: Into<usize>> IndexMut<Idx> for Tab {
         self.inner.idx_mut(index.into(), &mut 0).unwrap()
     }
 }
-

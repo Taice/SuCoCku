@@ -17,11 +17,18 @@ use crate::frame::tab::Tab;
 use crate::settings::{FONT_SCALE, Settings};
 use crate::sudoku::Sudoku;
 
+enum Mode {
+    Buffer,
+    Normal,
+}
+
 pub struct Frame {
     tabs: Vec<Tab>,
     curr_tab: usize,
 
     buffers: Vec<Buffer>,
+
+    mode: Mode,
 
     tabn: usize,
     settings: Rc<RefCell<Settings>>,
@@ -32,6 +39,7 @@ impl Frame {
     pub fn new(settings: Settings) -> Self {
         let settings = Rc::new(RefCell::new(settings));
         let mut ret = Self {
+            mode: Mode::Normal,
             // test
             tabs: vec![Tab {
                 name: "Tab #1".to_string(),
@@ -73,7 +81,11 @@ impl Frame {
             dimensions.y -= half;
             dimensions.w += self.settings.borrow().lines.window_gaps;
             dimensions.h += self.settings.borrow().lines.window_gaps;
-            draw_rect_outlines(dimensions, half, self.settings.borrow().colors.selected_window);
+            draw_rect_outlines(
+                dimensions,
+                half,
+                self.settings.borrow().colors.selected_window,
+            );
 
             // draw current tab's statusbar/command-line
             let cmd_size = self.settings.borrow().get_cmd_size();
@@ -157,40 +169,96 @@ impl Frame {
         self.resize();
     }
 
+    fn buffer_mode(&mut self) {
+        self.mode = Mode::Buffer;
+    }
+
+    fn switch_buffer(&mut self, n: i32) {
+        self.tabs[self.curr_tab].switch_buffer(n, self.buffers.len());
+    }
+
+    fn kill_buffer(&mut self) {
+        let mut len = self.buffers.len();
+        if len > 1 {
+            let win_idx = self.tabs[self.curr_tab].selected;
+            if let Split::Window(win) = self.tabs[self.curr_tab][win_idx] {
+                self.buffers.remove(win.buffer_index);
+            }
+            len -= 1;
+            for win in self.tabs[self.curr_tab].inner.iter_mut() {
+                if win.buffer_index >= len {
+                    win.buffer_index = len - 1;
+                }
+            }
+        }
+    }
+
     fn handle_input(&mut self) {
+        match self.mode {
+            Mode::Buffer => self.handle_input_buffer(),
+            Mode::Normal => self.handle_input_normal(),
+        }
+    }
+
+    fn handle_input_buffer(&mut self) {
+        if let Some(c) = get_char_pressed() {
+            match c {
+                'l' => self.switch_buffer(1),
+                'h' => self.switch_buffer(-1),
+                'n' => self.new_buffer(),
+                'k' => self.kill_buffer(),
+                _ => (),
+            }
+            self.mode = Mode::Normal;
+        }
+    }
+
+    fn handle_input_normal(&mut self) {
         if is_key_down(KeyCode::LeftControl) {
-            if let Some(kc) = get_last_key_pressed() {
-                match kc {
-                    KeyCode::Tab => {
-                        self.switch_tab(if is_key_down(KeyCode::LeftShift) {
-                            -1
-                        } else {
-                            1
-                        });
-                    }
-                    _ => (),
-                }
-            }
-            if let Some(ch) = get_char_pressed() {
-                match ch {
-                    '\\' => self.split(SplitDirection::Vertical),
-                    '-' => self.split(SplitDirection::Horizontal),
-                    'h' => self.tabs[self.curr_tab].move_left(self.settings.borrow().lines.window_gaps),
-                    'l' => self.tabs[self.curr_tab].move_right(self.settings.borrow().lines.window_gaps),
-                    'k' => self.tabs[self.curr_tab].move_up(self.settings.borrow().lines.window_gaps),
-                    'j' => self.tabs[self.curr_tab].move_down(self.settings.borrow().lines.window_gaps),
-                    'x' => self.kill_pane(),
-                    't' => self.new_tab(),
-                    'w' => self.close_tab(),
-                    'n' => self.new_buffer(),
-                    _ => (),
-                }
-            }
+            self.handle_frame_input();
         } else {
             if let Split::Window(selected_win) =
                 &self.tabs[self.curr_tab][self.tabs[self.curr_tab].selected]
             {
                 selected_win.update(&mut self.buffers[selected_win.buffer_index]);
+            }
+        }
+    }
+
+    fn handle_frame_input(&mut self) {
+        if let Some(kc) = get_last_key_pressed() {
+            match kc {
+                KeyCode::Tab => {
+                    self.switch_tab(if is_key_down(KeyCode::LeftShift) {
+                        -1
+                    } else {
+                        1
+                    });
+                }
+                _ => (),
+            }
+        }
+        if let Some(ch) = get_char_pressed() {
+            match ch {
+                '\\' => self.split(SplitDirection::Vertical),
+                '-' => self.split(SplitDirection::Horizontal),
+                'h' => {
+                    self.tabs[self.curr_tab].move_left(self.settings.borrow().lines.window_gaps);
+                }
+                'l' => {
+                    self.tabs[self.curr_tab].move_right(self.settings.borrow().lines.window_gaps);
+                }
+                'k' => {
+                    self.tabs[self.curr_tab].move_up(self.settings.borrow().lines.window_gaps);
+                }
+                'j' => {
+                    self.tabs[self.curr_tab].move_down(self.settings.borrow().lines.window_gaps);
+                }
+                'x' => self.kill_pane(),
+                't' => self.new_tab(),
+                'w' => self.close_tab(),
+                'b' => self.buffer_mode(),
+                _ => (),
             }
         }
     }
@@ -211,7 +279,8 @@ impl Frame {
         }
         max += self.settings.borrow().opts.tabline_gap * 3.;
 
-        let tab_size = self.settings.borrow().get_tabline_size() + self.settings.borrow().opts.tabline_gap * 2.;
+        let tab_size = self.settings.borrow().get_tabline_size()
+            + self.settings.borrow().opts.tabline_gap * 2.;
         let mut rect = Rect::new(
             self.settings.borrow().opts.outer_gaps,
             self.settings.borrow().opts.outer_gaps,
@@ -265,7 +334,8 @@ impl Frame {
 
     fn resize(&mut self) {
         let gaps = self.settings.borrow().opts.outer_gaps;
-        let tabline_size = self.settings.borrow().get_tabline_size() + self.settings.borrow().opts.tabline_gap * 3.;
+        let tabline_size = self.settings.borrow().get_tabline_size()
+            + self.settings.borrow().opts.tabline_gap * 3.;
         let cmd_size = self.settings.borrow().get_cmd_size();
         let dimensions = Rect {
             x: gaps,
