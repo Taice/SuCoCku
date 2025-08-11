@@ -1,9 +1,20 @@
-use std::ops::{Deref, DerefMut, Index, IndexMut};
+use std::{fmt::Display, ops::{Deref, DerefMut, Index, IndexMut}};
 
 use crate::sudoku::{ALL_NOTES, history::Change, is_note, n_bit_off};
 
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub struct SudokuBoard(pub [[u16; 9]; 9]);
+
+impl Display for SudokuBoard {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for y in self.0 {
+            for x in y {
+                write!(f, "{}", if (0..=9).contains(&x) { x } else { 0 })?;
+            }
+        }
+        Ok(())
+    }
+}
 
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub enum BacktrackResult {
