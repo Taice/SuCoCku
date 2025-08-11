@@ -30,9 +30,11 @@ impl Selection {
     fn toggle(&mut self, y: impl Into<usize>, x: impl Into<usize>) {
         self.0[y.into()] ^= 1 << x.into();
     }
+
     fn get(&self, y: impl Into<usize>, x: impl Into<usize>) -> bool {
         self.0[y.into()] & (1 << x.into()) > 0
     }
+
     fn clear(&mut self) {
         for x in &mut self.0 {
             *x = 0;
@@ -319,6 +321,7 @@ impl Sudoku {
             y += square_size;
         }
     }
+
     pub fn draw_statusbar(&self, dimensions: &Rect) {
         draw_rectangle(
             dimensions.x,
@@ -361,6 +364,7 @@ impl Sudoku {
         let x = dimensions.x + dimensions.w - width;
         draw_text_ex(&text, x, centered.y, text_params);
     }
+
     pub fn draw_cmd_line(&self, dimensions: &Rect) {
         draw_rectangle(
             dimensions.x,
@@ -678,6 +682,7 @@ impl Sudoku {
 
             let before = self.board[(self.row, self.col)];
             self.board[(self.row, self.col)] = num as u16;
+
             if self.settings.borrow().opts.check_input {
                 if let Some(solution) = &self.only_solution {
                     if solution[(self.row, self.col)] != num as u16 {
@@ -686,6 +691,7 @@ impl Sudoku {
                     }
                 } else {
                     let mut clone = self.board.clone();
+
                     match clone.solve() {
                         BacktrackResult::NoSolution => {
                             self.board[(self.row, self.col)] = before;

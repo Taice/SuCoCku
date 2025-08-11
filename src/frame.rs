@@ -56,6 +56,7 @@ impl Frame {
         ret.update();
         ret
     }
+
     pub fn draw(&mut self) {
         clear_background(self.settings.borrow().colors.bg_color);
 
@@ -132,6 +133,7 @@ impl Frame {
         });
         self.resize();
     }
+
     fn close_tab(&mut self) {
         let mut len = self.tabs.len();
         if len > 1 {
