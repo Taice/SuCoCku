@@ -103,6 +103,8 @@ impl Settings {
                     colors.visual_highlight_color,
                     into
                 );
+
+                assign_if_some_map!(default.colors.invalid_color, colors.invalid_color, into);
             }
 
             if let Some(o) = &config.opts {
@@ -121,6 +123,7 @@ impl Settings {
                     default.opts.highlight_square_instead_of_note,
                     o.highlight_square_instead_of_note
                 );
+                assign_if_some!(default.opts.remove_invalid, o.remove_invalid);
             }
             if let Some(keymaps) = &config.keymaps {
                 default.keymaps = match parse_config_keymaps(&keymaps) {

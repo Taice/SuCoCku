@@ -1,6 +1,8 @@
 use crate::settings::{BASE_COMMAND_FONT_SIZE, BASE_TABLINE_FONT_SIZE};
 
 pub struct Opts {
+    pub remove_invalid: bool,
+
     pub outer_gaps: f32,
     pub command_font_size: u16,
     pub tabline_font_size: u16,
@@ -28,6 +30,7 @@ impl Default for Opts {
             auto_fill_candidates: false,
 
             check_input: true,
+            remove_invalid: false,
 
             highlight_square_instead_of_note: false,
         }

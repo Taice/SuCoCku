@@ -18,7 +18,7 @@ use crate::{
 
 use arboard::Clipboard;
 use macroquad::prelude::*;
-use std::{cell::RefCell, f32, rc::Rc};
+use std::{cell::RefCell, collections::HashSet, f32, rc::Rc};
 
 const NOTE_FLAG: u16 = 15;
 const ALL_NOTES: u16 = 0b1000000111111111;
@@ -56,6 +56,8 @@ pub struct Sudoku {
 
     selected: Selection,
 
+    wrong: HashSet<(u8, u8)>,
+
     curr_keybind: String,
     repeat: u8,
 
@@ -66,6 +68,7 @@ pub struct Sudoku {
 impl Sudoku {
     pub fn new(settings: Rc<RefCell<Settings>>) -> Self {
         Self {
+            wrong: HashSet::new(),
             highlight: 0,
             history: History::default(),
             only_solution: None,
@@ -295,6 +298,20 @@ impl Sudoku {
                                 square_size,
                                 square_size,
                                 self.settings.borrow().colors.highlight_color,
+                            );
+                        }
+                        if let Some(..) = self.wrong.get(&(i as u8, j as u8)) {
+                            draw_rectangle(
+                                x,
+                                y,
+                                square_size,
+                                square_size,
+                                Color {
+                                    r: 1.0,
+                                    g: 0.0,
+                                    b: 0.0,
+                                    a: 0.8,
+                                },
                             );
                         }
                         let x = x + x_num_offset;
@@ -695,8 +712,12 @@ impl Sudoku {
 
                     match clone.solve() {
                         BacktrackResult::NoSolution => {
-                            self.board[(self.row, self.col)] = before;
-                            return;
+                            if self.settings.borrow().opts.remove_invalid {
+                                self.board[(self.row, self.col)] = before;
+                                return;
+                            } else {
+                                self.wrong.insert((self.row, self.col));
+                            }
                         }
                         BacktrackResult::OneSolution(solution) => {
                             self.only_solution = Some(solution);
@@ -886,6 +907,7 @@ impl Sudoku {
         if let Some(changes) = self.history.undo() {
             for change in changes {
                 self.board[change.pos] = change.before;
+                self.wrong.remove(&change.pos);
             }
         }
     }

@@ -23,6 +23,8 @@ pub struct Colors {
 
     pub highlight_color: Color,
     pub visual_highlight_color: Color,
+
+    pub invalid_color: Color,
 }
 impl Default for Colors {
     fn default() -> Self {
@@ -64,6 +66,13 @@ impl Default for Colors {
                 g: 0.4,
                 b: 0.7,
                 a: 1.0,
+            },
+
+            invalid_color: Color {
+                r: 1.0,
+                g: 0.0,
+                b: 0.0,
+                a: 0.7,
             },
         }
     }

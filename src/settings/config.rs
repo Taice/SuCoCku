@@ -34,6 +34,8 @@ pub struct Colors {
 
     pub highlight_color: Option<[f32; 4]>,
     pub visual_highlight_color: Option<[f32; 4]>,
+
+    pub invalid_color: Option<[f32; 4]>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -58,4 +60,6 @@ pub struct Opts {
     pub check_input: Option<bool>,
 
     pub highlight_square_instead_of_note: Option<bool>,
+
+    pub remove_invalid: Option<bool>,
 }
