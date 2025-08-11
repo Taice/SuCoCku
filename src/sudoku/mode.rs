@@ -4,7 +4,7 @@ use std::fmt::Display;
 pub enum Mode {
     Command,
     Normal,
-    Highlight(u8),
+    Highlight,
     Insert,
     Note,
     Go(u8),
@@ -15,7 +15,6 @@ impl Display for Mode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Mode::Go(..) => write!(f, "go"),
-            Mode::Highlight(..) => write!(f, "highlight"),
             Mode::Custom(s) => write!(f, "{s}"),
             _ => write!(f, "{}", format!("{self:?}").to_lowercase()),
         }

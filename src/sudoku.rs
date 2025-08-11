@@ -48,6 +48,8 @@ pub struct Sudoku {
     settings: Rc<RefCell<Settings>>,
     mode: Mode,
 
+    highlight: u8,
+
     cmd: String,
 
     history: History,
@@ -64,6 +66,7 @@ pub struct Sudoku {
 impl Sudoku {
     pub fn new(settings: Rc<RefCell<Settings>>) -> Self {
         Self {
+            highlight: 0,
             history: History::default(),
             only_solution: None,
             board: SudokuBoard(
@@ -252,10 +255,7 @@ impl Sudoku {
                 if *n != 0 {
                     if is_note(*n) {
                         // draw_highlights
-                        if let Mode::Highlight(num) = self.mode
-                            && num != 0
-                            && *n & (1 << (num - 1)) > 0
-                        {
+                        if self.highlight != 0 && *n & (1 << (self.highlight - 1)) > 0 {
                             if self.settings.borrow().opts.highlight_square_instead_of_note {
                                 draw_rectangle(
                                     x,
@@ -265,8 +265,8 @@ impl Sudoku {
                                     self.settings.borrow().colors.highlight_color,
                                 );
                             } else {
-                                let note_x = x + ((num - 1) % 3) as f32 * third;
-                                let note_y = y + ((num - 1) / 3) as f32 * third;
+                                let note_x = x + ((self.highlight - 1) % 3) as f32 * third;
+                                let note_y = y + ((self.highlight - 1) / 3) as f32 * third;
 
                                 draw_rectangle(
                                     note_x,
@@ -288,9 +288,7 @@ impl Sudoku {
                             &self.settings.borrow().font,
                         );
                     } else {
-                        if let Mode::Highlight(num) = self.mode
-                            && num as u16 == *n
-                        {
+                        if self.highlight as u16 == *n {
                             draw_rectangle(
                                 x,
                                 y,
@@ -525,10 +523,13 @@ impl Sudoku {
                     }
                 }
             }
-            Mode::Highlight(num) => {
+            Mode::Highlight => {
                 if let Some(c) = get_char_pressed() {
                     match c {
-                        '0'..='9' => *num = c as u8 - b'0',
+                        '0'..='9' => {
+                            self.highlight = c as u8 - b'0';
+                            self.mode = Mode::Normal;
+                        }
                         _ => self.update_keybind(c),
                     }
                 }
@@ -788,7 +789,11 @@ impl Sudoku {
     }
 
     fn highlight(&mut self, repeat: Option<u8>) {
-        self.mode = Mode::Highlight(repeat.unwrap_or_default());
+        if let Some(val) = repeat {
+            self.highlight = val;
+        } else {
+            self.mode = Mode::Highlight;
+        }
     }
 
     fn mode(&mut self, mode: &str) {
